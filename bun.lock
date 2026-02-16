@@ -16,6 +16,7 @@
         "@codemirror/lang-markdown": "^6.5.0",
         "@codemirror/lang-python": "^6.2.1",
         "@codemirror/theme-one-dark": "^6.1.3",
+        "@dodopayments/nextjs": "^0.3.4",
         "@hookform/resolvers": "^5.2.2",
         "@inngest/agent-kit": "^0.13.2",
         "@inngest/middleware-sentry": "^0.1.3",
@@ -64,6 +65,7 @@
         "codemirror": "^6.0.2",
         "convex": "^1.31.2",
         "date-fns": "^4.1.0",
+        "dodopayments": "^2.19.1",
         "embla-carousel-react": "^8.6.0",
         "inngest": "^3.49.3",
         "input-otp": "^1.4.2",
@@ -217,6 +219,10 @@
     "@date-fns/tz": ["@date-fns/tz@1.4.1", "", {}, "sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA=="],
 
     "@dmitryrechkin/json-schema-to-zod": ["@dmitryrechkin/json-schema-to-zod@1.0.1", "", { "dependencies": { "zod": "^3.23.8" } }, "sha512-cG9gC4NMu/7JZqmRZy6uIb+l+kxek2GFQ0/qrhw7xeFK2l5B9yF9FVuujoqFPLRGDHNFYqtBWht7hY4KB0ngrA=="],
+
+    "@dodopayments/core": ["@dodopayments/core@0.3.8", "", { "dependencies": { "dodopayments": "^2.4.6", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Klynu56uAwDNv8vSMxtSnDby+pBjK9W6860d0pWY8kkYdq9SyBJiW64vf/3kVRmd5RZoaHe8x0dS5QEyFMgdLw=="],
+
+    "@dodopayments/nextjs": ["@dodopayments/nextjs@0.3.4", "", { "dependencies": { "@dodopayments/core": "^0.3.8" }, "peerDependencies": { "next": "^14.0.0 || ^15.0.0 || ^16.0.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-VBqxZy6LXjCCy/SaqURJ6qRwdYBl6Bvn5jDahyOCwvC95xOhDkoEMfqqFwJkoy9wQ5fD+nGEYLJBOXBsivuJFw=="],
 
     "@emnapi/core": ["@emnapi/core@1.7.1", "", { "dependencies": { "@emnapi/wasi-threads": "1.1.0", "tslib": "^2.4.0" } }, "sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg=="],
 
@@ -1489,6 +1495,8 @@
     "devlop": ["devlop@1.1.0", "", { "dependencies": { "dequal": "^2.0.0" } }, "sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA=="],
 
     "doctrine": ["doctrine@2.1.0", "", { "dependencies": { "esutils": "^2.0.2" } }, "sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw=="],
+
+    "dodopayments": ["dodopayments@2.19.1", "", { "dependencies": { "standardwebhooks": "^1.0.0" }, "bin": { "dodopayments": "bin/cli" } }, "sha512-wM198By5HXm6wqvsGZRqmCYY5nHCKG3UkcKFld1A5YYbLJKsQSQHNMeZPYoqSH+p+mFu6aKCMAM2tQWSKFxMRA=="],
 
     "dom-helpers": ["dom-helpers@5.2.1", "", { "dependencies": { "@babel/runtime": "^7.8.7", "csstype": "^3.0.2" } }, "sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA=="],
 

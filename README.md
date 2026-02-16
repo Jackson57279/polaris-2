@@ -259,3 +259,67 @@ A huge thank you to the sponsors who made this tutorial possible. Consider check
 - [Orchids](https://orchids.app) - Inspiration for the project
 - [shadcn/ui](https://ui.shadcn.com) - UI components
 - [CodeMirror](https://codemirror.net) - Code editor
+
+## Billing (Dodo Payments)
+
+This project integrates Dodo Payments for subscriptions and wallet credits, synchronized with Clerk users and Convex.
+
+Routes added:
+- Checkout (adapter)
+  - GET /checkout — static checkout link
+  - POST /checkout — Checkout Sessions (recommended)
+- Webhook (adapter)
+  - POST /api/webhook/dodo-payments — verified Dodo webhook → upserts to Convex
+- Customer Portal (adapter)
+  - GET /customer-portal?customer_id=...&amp;send_email=true
+  - GET /api/customer-portal/for-user — Clerk-aware bootstrapper to redirect to /customer-portal
+- Authenticated Checkout helper
+  - POST /api/checkout/session-with-auth — merges Clerk email/name and metadata, proxies to /checkout
+- Wallet credits (admin/server-only)
+  - POST /api/wallet/ledger — creates customer wallet ledger entries in Dodo and mirrors to Convex
+
+Convex schema tables added:
+- customers, payments, subscriptions, wallets, wallet_ledger, billing_webhook_events
+
+Convex billing functions:
+- convex/billing.ts: upsertCustomer, upsertPayment, upsertSubscription, recordWalletLedger, recordWebhookEvent, getCustomerByClerk
+
+Environment variables (required):
+- DODO_PAYMENTS_API_KEY=sk_test_xxx
+- DODO_PAYMENTS_ENVIRONMENT=test_mode   # or live_mode
+- DODO_PAYMENTS_RETURN_URL=http://localhost:3000
+- DODO_PAYMENTS_WEBHOOK_SECRET=whsec_xxx
+- POLARIS_CONVEX_INTERNAL_KEY=generate_a_random_secret
+
+Notes:
+- All Dodo amounts are in the smallest currency unit (e.g., cents for USD).
+- Webhook handler verifies signatures and writes raw events to Convex for audit/idempotency.
+- The session-with-auth endpoint injects Clerk user context and clerk_user_id metadata.
+- The for-user portal endpoint looks up the current user’s Dodo customer_id in Convex and redirects.
+
+Local testing checklist:
+1) Set env vars above in .env.local
+2) Start Convex and Next.js:
+   - npx convex dev
+   - npm run dev (or bun dev)
+3) Create a subscription session:
+   - POST /api/checkout/session-with-auth with body:
+     {"product_cart":[{"product_id":"pdt_xxx","quantity":1}]}
+   - Open returned checkout_url, complete test payment
+4) Observe webhook sync into Convex:
+   - customers/payments/subscriptions rows should be created/updated
+5) Test portal:
+   - GET /api/customer-portal/for-user (requires signed-in Clerk user with mapping)
+6) Credit wallet (admin only):
+   - POST /api/wallet/ledger with header x-internal-key=POLARIS_CONVEX_INTERNAL_KEY and body:
+     {"dodo_customer_id":"cus_xxx","amount":5000,"currency":"USD","entry_type":"credit","reason":"Promo"}
+
+Security:
+- Keep all secrets in environment variables.
+- Webhooks use signature verification via @dodopayments/nextjs adapter.
+- Internal Convex mutations require POLARIS_CONVEX_INTERNAL_KEY.
+
+Documentation references:
+- Next.js adapter: https://docs.dodopayments.com/developer-resources/nextjs-adaptor
+- Webhooks: https://docs.dodopayments.com/developer-resources/webhooks
+- Wallet ledger API: https://docs.dodopayments.com/api-reference/customers/post-customer-wallets-ledger-entries
