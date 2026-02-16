@@ -1,4 +1,4 @@
-import { createAgent, anthropic, createNetwork } from '@inngest/agent-kit';
+import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
 
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -117,9 +117,11 @@ export const processMessage = inngest.createFunction(
        const titleAgent = createAgent({
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: anthropic({
-          model: "claude-3-5-haiku-20241022",
-          defaultParameters: { temperature: 0, max_tokens: 50 },
+        model: openai({
+          model: "anthropic/claude-3-5-haiku-20241022",
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseUrl: "https://openrouter.ai/api/v1",
+          defaultParameters: { temperature: 0, max_completion_tokens: 50 },
         }),
        });
 
@@ -155,10 +157,12 @@ export const processMessage = inngest.createFunction(
       name: "polaris",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-       model: anthropic({
-        model: "claude-opus-4-20250514",
-        defaultParameters: { temperature: 0.3, max_tokens: 16000 }
-       }),
+model: openai({
+         model: "minimax/minimax-m2.5",
+         apiKey: process.env.OPENROUTER_API_KEY,
+         baseUrl: "https://openrouter.ai/api/v1",
+         defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 }
+        }),
        tools: [
         createListFilesTool({ internalKey, projectId }),
         createReadFilesTool({ internalKey }),
