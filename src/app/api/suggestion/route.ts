@@ -1,9 +1,14 @@
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { anthropic } from "@ai-sdk/anthropic";
-// import { google } from "@ai-sdk/google";
+
+const openrouter = createOpenAICompatible({
+  name: 'openrouter',
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 const suggestionSchema = z.object({
   suggestion: z
@@ -82,13 +87,14 @@ export async function POST(request: Request) {
       .replace("{nextLines}", nextLines || "")
       .replace("{lineNumber}", lineNumber.toString());
 
-    const { output } = await generateText({
-      model: anthropic("claude-3-7-sonnet-20250219"),
-      output: Output.object({ schema: suggestionSchema }),
+    const { text: rawResult } = await generateText({
+      model: openrouter("x-ai/grok-4.1-fast"),
       prompt,
     });
 
-    return NextResponse.json({ suggestion: output.suggestion })
+    const result = suggestionSchema.parse(JSON.parse(rawResult));
+
+    return NextResponse.json({ suggestion: result.suggestion })
   } catch (error) {
     console.error("Suggestion error: ", error);
     return NextResponse.json(

@@ -118,7 +118,7 @@ export const processMessage = inngest.createFunction(
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
         model: openai({
-          model: "anthropic/claude-3-5-haiku-20241022",
+          model: "x-ai/grok-4.1-fast",
           apiKey: process.env.OPENROUTER_API_KEY,
           baseUrl: "https://openrouter.ai/api/v1",
           defaultParameters: { temperature: 0, max_completion_tokens: 50 },

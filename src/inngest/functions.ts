@@ -1,7 +1,13 @@
 import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { inngest } from "./client";
-import { anthropic } from "@ai-sdk/anthropic";
 import { firecrawl } from "@/lib/firecrawl";
+
+const openrouter = createOpenAICompatible({
+  name: 'openrouter',
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
@@ -34,7 +40,7 @@ export const demoGenerate = inngest.createFunction(
 
     await step.run("generate-text", async () => {
       return await generateText({
-        model: anthropic('claude-3-haiku-20240307'),
+        model: openrouter('x-ai/grok-4.1-fast'),
         prompt: finalPrompt,
         experimental_telemetry: {
           isEnabled: true,

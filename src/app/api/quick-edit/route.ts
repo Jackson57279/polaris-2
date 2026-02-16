@@ -1,8 +1,14 @@
 import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { anthropic } from "@ai-sdk/anthropic";
+
+const openrouter = createOpenAICompatible({
+  name: 'openrouter',
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 import { firecrawl } from "@/lib/firecrawl";
 
@@ -101,13 +107,14 @@ export async function POST(request: Request) {
       .replace("{instruction}", instruction)
       .replace("{documentation}", documentationContext);
 
-    const { output } = await generateText({
-      model: anthropic("claude-3-7-sonnet-20250219"),
-      output: Output.object({ schema: quickEditSchema }),
+    const { text: rawResult } = await generateText({
+      model: openrouter("x-ai/grok-4.1-fast"),
       prompt,
     });
 
-    return NextResponse.json({ editedCode: output.editedCode });
+    const result = quickEditSchema.parse(JSON.parse(rawResult));
+
+    return NextResponse.json({ editedCode: result.editedCode });
   } catch (error) {
     console.error("Edit error:", error);
     return NextResponse.json(
