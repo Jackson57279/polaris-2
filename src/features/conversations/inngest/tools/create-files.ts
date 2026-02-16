@@ -30,7 +30,7 @@ export const createCreateFilesTool = ({
   return createTool({
     name: "createFiles",
     description:
-      "Create multiple files at once in the same folder. Use this to batch create files that share the same parent folder. More efficient than creating files one by one.",
+      "Create multiple files at once. File names can include paths (e.g., 'src/index.css') - parent folders will be automatically created. More efficient than creating files one by one.",
     parameters: z.object({
       parentId: z
         .string()
@@ -40,7 +40,7 @@ export const createCreateFilesTool = ({
       files: z
         .array(
           z.object({
-            name: z.string().describe("The file name including extension"),
+            name: z.string().describe("The file name including extension, can include path like 'src/index.css'"),
             content: z.string().describe("The file content"),
           })
         )
@@ -76,22 +76,114 @@ export const createCreateFilesTool = ({
             }
           }
 
-          const results = await convex.mutation(api.system.createFiles, {
-            internalKey,
-            projectId,
-            parentId: resolvedParentId,
-            files,
-          });
+          const folderCache = new Map<string, Id<"files">>();
 
-          const created = results.filter((r) => !r.error);
-          const failed = results.filter((r) => r.error);
+          async function ensureFolderPath(
+            pathSegments: string[],
+            baseParentId: Id<"files"> | undefined
+          ): Promise<Id<"files">> {
+            let currentParentId = baseParentId;
+            let currentPath = "";
 
-          let response = `Created ${created.length} file(s)`;
-          if (created.length > 0) {
-            response += `: ${created.map((r) => r.name).join(", ")}`;
+            for (const segment of pathSegments) {
+              currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+
+              if (folderCache.has(currentPath)) {
+                currentParentId = folderCache.get(currentPath)!;
+              } else {
+                const folderId = await convex.mutation(api.system.createFolder, {
+                  internalKey,
+                  projectId,
+                  name: segment,
+                  parentId: currentParentId,
+                });
+                folderCache.set(currentPath, folderId);
+                currentParentId = folderId;
+              }
+            }
+
+            return currentParentId!;
           }
-          if (failed.length > 0) {
-            response += `. Failed: ${failed.map((r) => `${r.name} (${r.error})`).join(", ")}`;
+
+          const transformedFiles: Array<{
+            name: string;
+            content: string;
+            resolvedParentId: Id<"files"> | undefined;
+          }> = [];
+
+          for (const file of files) {
+            const normalizedName = file.name
+              .replace(/^\/+/, "")
+              .replace(/\/+/g, "/")
+              .replace(/\/$/, "");
+
+            if (!normalizedName) {
+              return `Error: Invalid file name "${file.name}". File name cannot be empty or just slashes.`;
+            }
+
+            const segments = normalizedName.split("/");
+
+            if (segments.length === 1) {
+              transformedFiles.push({
+                name: segments[0],
+                content: file.content,
+                resolvedParentId,
+              });
+            } else {
+              const folderSegments = segments.slice(0, -1);
+              const fileName = segments[segments.length - 1];
+
+              const fileFolderId = await ensureFolderPath(folderSegments, resolvedParentId);
+
+              transformedFiles.push({
+                name: fileName,
+                content: file.content,
+                resolvedParentId: fileFolderId,
+              });
+            }
+          }
+
+          const filesByParent = new Map<
+            string,
+            { files: Array<{ name: string; content: string }>; parentId: Id<"files"> | undefined }
+          >();
+
+          for (const tf of transformedFiles) {
+            const key = tf.resolvedParentId ?? "__root__";
+            if (!filesByParent.has(key)) {
+              filesByParent.set(key, { files: [], parentId: tf.resolvedParentId });
+            }
+            filesByParent.get(key)!.files.push({ name: tf.name, content: tf.content });
+          }
+
+          let totalCreated = 0;
+          let totalFailed = 0;
+          const createdNames: string[] = [];
+          const failedNames: string[] = [];
+
+          for (const { files: groupFiles, parentId: groupParentId } of filesByParent.values()) {
+            const results = await convex.mutation(api.system.createFiles, {
+              internalKey,
+              projectId,
+              parentId: groupParentId,
+              files: groupFiles,
+            });
+
+            const created = results.filter((r) => !r.error);
+            const failed = results.filter((r) => r.error);
+
+            totalCreated += created.length;
+            totalFailed += failed.length;
+            createdNames.push(...created.map((r) => r.name));
+            failedNames.push(...failed.map((r) => `${r.name} (${r.error})`));
+          }
+
+          let response = `Created ${totalCreated} file(s)`;
+          if (createdNames.length > 0) {
+            response += `: ${createdNames.join(", ")}`;
+          }
+          if (totalFailed > 0) {
+            response += `. Failed: ${failedNames.join(", ")}`;
           }
 
           return response;
