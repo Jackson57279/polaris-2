@@ -3,6 +3,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { safeParseAIJSON } from "@/lib/utils";
 
 const openrouter = createOpenAICompatible({
   name: 'openrouter',
@@ -92,14 +93,39 @@ export async function POST(request: Request) {
       prompt,
     });
 
-    const result = suggestionSchema.parse(JSON.parse(rawResult));
+    if (!rawResult || rawResult.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Empty response from AI model" },
+        { status: 502 }
+      );
+    }
 
-    return NextResponse.json({ suggestion: result.suggestion })
+    let parsedData;
+    try {
+      parsedData = safeParseAIJSON<unknown>(rawResult);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      return NextResponse.json(
+        { error: "Invalid response format from AI model" },
+        { status: 502 }
+      );
+    }
+
+    const validationResult = suggestionSchema.safeParse(parsedData);
+    if (!validationResult.success) {
+      console.error("Schema validation error:", validationResult.error);
+      return NextResponse.json(
+        { error: "AI response did not match expected format" },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ suggestion: validationResult.data.suggestion });
   } catch (error) {
-    console.error("Suggestion error: ", error);
+    console.error("Suggestion error:", error);
     return NextResponse.json(
       { error: "Failed to generate suggestion" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

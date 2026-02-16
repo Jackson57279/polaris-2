@@ -3,14 +3,14 @@ import { generateText } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { firecrawl } from "@/lib/firecrawl";
+import { safeParseAIJSON } from "@/lib/utils";
 
 const openrouter = createOpenAICompatible({
   name: 'openrouter',
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
 });
-
-import { firecrawl } from "@/lib/firecrawl";
 
 const quickEditSchema = z.object({
   editedCode: z
@@ -112,9 +112,34 @@ export async function POST(request: Request) {
       prompt,
     });
 
-    const result = quickEditSchema.parse(JSON.parse(rawResult));
+    if (!rawResult || rawResult.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Empty response from AI model" },
+        { status: 502 }
+      );
+    }
 
-    return NextResponse.json({ editedCode: result.editedCode });
+    let parsedData;
+    try {
+      parsedData = safeParseAIJSON<unknown>(rawResult);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      return NextResponse.json(
+        { error: "Invalid response format from AI model" },
+        { status: 502 }
+      );
+    }
+
+    const validationResult = quickEditSchema.safeParse(parsedData);
+    if (!validationResult.success) {
+      console.error("Schema validation error:", validationResult.error);
+      return NextResponse.json(
+        { error: "AI response did not match expected format" },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ editedCode: validationResult.data.editedCode });
   } catch (error) {
     console.error("Edit error:", error);
     return NextResponse.json(
