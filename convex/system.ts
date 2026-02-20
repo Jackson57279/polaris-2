@@ -26,6 +26,32 @@ export const getConversationById = query({
   },
 });
 
+export const getProjectById = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    return await ctx.db.get(args.projectId);
+  },
+});
+
+export const hasActiveSubscription = query({
+  args: {
+    internalKey: v.string(),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .collect();
+    return subs.some((s) => s.status === "active");
+  },
+});
+
 export const createMessage = mutation({
   args: {
     internalKey: v.string(),

@@ -24,6 +24,7 @@ interface MessageEvent {
   conversationId: Id<"conversations">;
   projectId: Id<"projects">;
   message: string;
+  imageUrls?: string[];
 };
 
 export const processMessage = inngest.createFunction(
@@ -60,7 +61,8 @@ export const processMessage = inngest.createFunction(
       messageId, 
       conversationId,
       projectId,
-      message
+      message,
+      imageUrls,
     } = event.data as MessageEvent;
 
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY; 
@@ -69,20 +71,39 @@ export const processMessage = inngest.createFunction(
       throw new NonRetriableError("POLARIS_CONVEX_INTERNAL_KEY is not configured");
     }
 
-    // TODO: Check if this is needed
     await step.sleep("wait-for-db-sync", "1s");
 
-    // Get conversation for title generation check
-    const conversation = await step.run("get-conversation", async () => {
-      return await convex.query(api.system.getConversationById, {
-        internalKey,
-        conversationId,
-      });
-    });
+    const { conversation, isPro } = await step.run(
+      "get-conversation-and-pro-status",
+      async () => {
+        const [conv, proj] = await Promise.all([
+          convex.query(api.system.getConversationById, {
+            internalKey,
+            conversationId,
+          }),
+          convex.query(api.system.getProjectById, {
+            internalKey,
+            projectId,
+          }),
+        ]);
+        let hasPro = false;
+        if (proj) {
+          hasPro = await convex.query(api.system.hasActiveSubscription, {
+            internalKey,
+            clerkUserId: proj.ownerId,
+          });
+        }
+        return { conversation: conv, isPro: hasPro };
+      }
+    );
 
     if (!conversation) {
       throw new NonRetriableError("Conversation not found");
     }
+
+    const codingModel = isPro
+      ? "google/gemini-3.1-pro-preview"
+      : "minimax/minimax-m2.5";
 
     // Fetch recent messages for conversation context
     const recentMessages = await step.run("get-recent-messages", async () => {
@@ -158,7 +179,7 @@ export const processMessage = inngest.createFunction(
       description: "An expert AI coding assistant",
       system: systemPrompt,
 model: openai({
-         model: "minimax/minimax-m2.5",
+         model: codingModel,
          apiKey: process.env.OPENROUTER_API_KEY,
          baseUrl: "https://openrouter.ai/api/v1",
          defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 }
@@ -198,8 +219,14 @@ model: openai({
       }
     });
 
+    // Build the full message content including any reference images
+    let fullMessage = message;
+    if (imageUrls && imageUrls.length > 0) {
+      fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
+    }
+
     // Run the agent
-    const result = await network.run(message);
+    const result = await network.run(fullMessage);
 
     // Extract the assistant's text response from the last agent result
     const lastResult = result.state.results.at(-1);

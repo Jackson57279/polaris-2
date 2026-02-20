@@ -150,6 +150,9 @@ export const Navbar = ({
         )}
       </div>
       <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/pricing">Pricing</Link>
+        </Button>
         <UserButton />
       </div>
     </nav>
