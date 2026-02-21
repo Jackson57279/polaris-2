@@ -132,36 +132,42 @@ export const processMessage = inngest.createFunction(
         }),
        });
 
-       const { output } = await titleAgent.run(message, { step });
+      const generatedTitle = await step.run(
+        "generate-conversation-title",
+        async () => {
+          const { output } = await titleAgent.run(message);
 
-       const textMessage = output.find(
-        (m) => m.type === "text" && m.role === "assistant"
-      );
+          const textMessage = output.find(
+            (m) => m.type === "text" && m.role === "assistant"
+          );
 
-      if (textMessage?.type === "text") {
-         const title = 
-          typeof textMessage.content === "string"
+          if (textMessage?.type !== "text") {
+            return null;
+          }
+
+          return typeof textMessage.content === "string"
             ? textMessage.content.trim()
             : textMessage.content
-              .map((c) => c.text)
-              .join("")
-              .trim();
-
-        if (title) {
-          await step.run("update-conversation-title", async () => {
-            await convex.mutation(api.system.updateConversationTitle, {
-              internalKey,
-              conversationId,
-              title,
-            });
-          });
+                .map((c) => c.text)
+                .join("")
+                .trim();
         }
+      );
+
+      if (generatedTitle) {
+        await step.run("update-conversation-title", async () => {
+          await convex.mutation(api.system.updateConversationTitle, {
+            internalKey,
+            conversationId,
+            title: generatedTitle,
+          });
+        });
       }
     }
 
     // Create the coding agent with file tools
     const codingAgent = createAgent({
-      name: "polaris",
+      name: "polaris-coding-agent",
       description: "An expert AI coding assistant",
       system: systemPrompt,
 model: openai({
@@ -184,7 +190,7 @@ model: openai({
 
     // Create network with single agent
     const network = createNetwork({
-      name: "polaris-network",
+      name: "polaris-coding-network",
       agents: [codingAgent],
       maxIter: 20,
       router: ({ network }) => {
@@ -211,24 +217,24 @@ model: openai({
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
     }
 
-    // Run the agent
-    const result = await network.run(fullMessage);
+    const assistantResponse = await step.run(
+      "run-coding-network",
+      async () => {
+        const result = await network.run(fullMessage);
+        const lastResult = result.state.results.at(-1);
+        const textMessage = lastResult?.output.find(
+          (m) => m.type === "text" && m.role === "assistant"
+        );
 
-    // Extract the assistant's text response from the last agent result
-    const lastResult = result.state.results.at(-1);
-    const textMessage = lastResult?.output.find(
-      (m) => m.type === "text" && m.role === "assistant"
-    );
+        if (textMessage?.type !== "text") {
+          return "I processed your request. Let me know if you need anything else!";
+        }
 
-    let assistantResponse =
-      "I processed your request. Let me know if you need anything else!";
-
-    if (textMessage?.type === "text") {
-      assistantResponse =
-        typeof textMessage.content === "string"
+        return typeof textMessage.content === "string"
           ? textMessage.content
           : textMessage.content.map((c) => c.text).join("");
-    }
+      }
+    );
 
     // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {
