@@ -2,7 +2,7 @@
 
 import { Poppins } from "next/font/google";
 import { SparkleIcon } from "lucide-react";
-import { FaGithub } from "react-icons/fa";
+import { FaGithub, FaFigma } from "react-icons/fa";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { ProjectsList } from "./projects-list";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
 import { ImportGithubDialog } from "./import-github-dialog";
+import { ImportFigmaDialog } from "./import-figma-dialog";
 import { NewProjectDialog } from "./new-project-dialog";
 
 const font = Poppins({
@@ -22,6 +23,7 @@ const font = Poppins({
 export const ProjectsView = () => {
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFigmaDialogOpen, setImportFigmaDialogOpen] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -38,6 +40,10 @@ export const ProjectsView = () => {
         if (e.key === "j") {
           e.preventDefault();
           setNewProjectDialogOpen(true);
+        }
+        if (e.key === "f") {
+          e.preventDefault();
+          setImportFigmaDialogOpen(true);
         }
       }
     }
@@ -56,6 +62,10 @@ export const ProjectsView = () => {
       <ImportGithubDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
+      />
+      <ImportFigmaDialog
+        open={importFigmaDialogOpen}
+        onOpenChange={setImportFigmaDialogOpen}
       />
       <NewProjectDialog
         open={newProjectDialogOpen}
@@ -79,7 +89,7 @@ export const ProjectsView = () => {
           </div>
 
           <div className="flex flex-col gap-4 w-full">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 variant="outline"
                 onClick={() => setNewProjectDialogOpen(true)}
@@ -111,6 +121,23 @@ export const ProjectsView = () => {
                 <div>
                   <span className="text-sm">
                     Import
+                  </span>
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setImportFigmaDialogOpen(true)}
+                className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <FaFigma className="size-4" />
+                  <Kbd className="bg-accent border">
+                    ⌘F
+                  </Kbd>
+                </div>
+                <div>
+                  <span className="text-sm">
+                    Figma
                   </span>
                 </div>
               </Button>
