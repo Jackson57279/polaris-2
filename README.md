@@ -64,7 +64,7 @@ Polaris is a browser-based IDE inspired by Cursor AI, featuring:
 ### Prerequisites
 
 - Node.js 20.09+
-- npm or pnpm
+- bun (`npm install -g bun`)
 - Accounts needed:
   - [Clerk](https://cwa.run/clerk) - Authentication
   - [Convex](https://cwa.run/convex) - Database
@@ -85,7 +85,7 @@ Polaris is a browser-based IDE inspired by Cursor AI, featuring:
 2. Install dependencies:
 
    ```bash
-   npm install
+   bun install
    ```
 
 3. Set up environment variables:
@@ -126,7 +126,7 @@ Polaris is a browser-based IDE inspired by Cursor AI, featuring:
 6. In a new terminal, start the Next.js development server:
 
    ```bash
-   npm run dev
+   bun run dev
    ```
 
 7. In another terminal, start the Inngest dev server:
@@ -213,10 +213,11 @@ These features are planned for Part 2:
 ## Scripts
 
 ```bash
-npm run dev       # Start development server
-npm run build     # Build for production
-npm run start     # Start production server
-npm run lint      # Run ESLint
+bun run dev      # Start development server
+bun run build    # Build for production
+bun run start    # Start production server
+bun run lint     # Run ESLint
+bun test         # Run tests
 ```
 
 ## Tutorial Links

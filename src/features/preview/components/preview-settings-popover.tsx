@@ -21,6 +21,8 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 const formSchema = z.object({
   installCommand: z.string(),
   devCommand: z.string(),
+  buildCommand: z.string(),
+  outputDir: z.string(),
 });
 
 interface PreviewSettingsPopoverProps {
@@ -41,6 +43,8 @@ export const PreviewSettingsPopover = ({
     defaultValues: {
       installCommand: initialValues?.installCommand ?? "",
       devCommand: initialValues?.devCommand ?? "",
+      buildCommand: initialValues?.buildCommand ?? "",
+      outputDir: initialValues?.outputDir ?? "",
     },
     validators: {
       onSubmit: formSchema,
@@ -51,6 +55,8 @@ export const PreviewSettingsPopover = ({
         settings: {
           installCommand: value.installCommand || undefined,
           devCommand: value.devCommand || undefined,
+          buildCommand: value.buildCommand || undefined,
+          outputDir: value.outputDir || undefined,
         },
       });
       setOpen(false);
@@ -63,6 +69,8 @@ export const PreviewSettingsPopover = ({
       form.reset({
         installCommand: initialValues?.installCommand ?? "",
         devCommand: initialValues?.devCommand ?? "",
+        buildCommand: initialValues?.buildCommand ?? "",
+        outputDir: initialValues?.outputDir ?? "",
       });
     }
     setOpen(isOpen);
@@ -134,6 +142,47 @@ export const PreviewSettingsPopover = ({
                 </Field>
               )}
             </form.Field>
+            <div className="border-t pt-4 space-y-4">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Deployment
+              </p>
+              <form.Field name="buildCommand">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>Build Command</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="npm run build"
+                    />
+                    <FieldDescription>
+                      Command to build the project for deployment
+                    </FieldDescription>
+                  </Field>
+                )}
+              </form.Field>
+              <form.Field name="outputDir">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>Output Directory</FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="dist"
+                    />
+                    <FieldDescription>
+                      Where build output files are written (e.g. dist, build, out)
+                    </FieldDescription>
+                  </Field>
+                )}
+              </form.Field>
+            </div>
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
             >

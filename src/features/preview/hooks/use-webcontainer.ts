@@ -14,7 +14,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 let webcontainerInstance: WebContainer | null = null;
 let bootPromise: Promise<WebContainer> | null = null;
 
-const getWebContainer = async (): Promise<WebContainer> => {
+export const getWebContainer = async (): Promise<WebContainer> => {
   if (webcontainerInstance) {
     return webcontainerInstance;
   }
@@ -94,7 +94,7 @@ export const useWebContainer = ({
 
         setStatus("installing");
 
-        // Parse install command (default: npm install)
+        // Parse install command (default: npm install; WebContainers do not ship bun)
         const installCmd = settings?.installCommand || "npm install";
         const [installBin, ...installArgs] = installCmd.split(" ");
         appendOutput(`$ ${installCmd}\n`)

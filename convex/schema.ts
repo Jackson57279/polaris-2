@@ -22,10 +22,26 @@ export default defineSchema({
       ),
     ),
     exportRepoUrl: v.optional(v.string()),
+    deploymentStatus: v.optional(
+      v.union(
+        v.literal("deploying"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+    deploymentProvider: v.optional(
+      v.union(v.literal("vercel"), v.literal("netlify")),
+    ),
+    deploymentUrl: v.optional(v.string()),
+    deploymentProjectId: v.optional(v.string()),
+    deploymentSiteId: v.optional(v.string()),
+    deploymentError: v.optional(v.string()),
     settings: v.optional(
       v.object({
         installCommand: v.optional(v.string()),
         devCommand: v.optional(v.string()),
+        buildCommand: v.optional(v.string()),
+        outputDir: v.optional(v.string()),
       })
     ),
   }).index("by_owner", ["ownerId"]),

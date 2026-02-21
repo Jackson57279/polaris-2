@@ -533,6 +533,40 @@ export const updateImportStatus = mutation({
   },
 });
 
+export const updateDeploymentStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+    status: v.optional(
+      v.union(
+        v.literal("deploying"),
+        v.literal("completed"),
+        v.literal("failed"),
+      )
+    ),
+    provider: v.optional(
+      v.union(v.literal("vercel"), v.literal("netlify")),
+    ),
+    deploymentUrl: v.optional(v.string()),
+    deploymentProjectId: v.optional(v.string()),
+    deploymentSiteId: v.optional(v.string()),
+    deploymentError: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    await ctx.db.patch(args.projectId, {
+      deploymentStatus: args.status,
+      deploymentProvider: args.provider,
+      deploymentUrl: args.deploymentUrl,
+      deploymentProjectId: args.deploymentProjectId,
+      deploymentSiteId: args.deploymentSiteId,
+      deploymentError: args.deploymentError,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const updateExportStatus = mutation({
   args: {
     internalKey: v.string(),
