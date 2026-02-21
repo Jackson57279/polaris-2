@@ -181,16 +181,27 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
           <XCircleIcon className="size-6 text-rose-500" />
           <p className="text-sm font-medium">Unable to export</p>
           <p className="text-xs text-muted-foreground text-center">
-            Something went wrong. Please try again.
+            Repository creation failed. Reconnect your GitHub account with
+            repository access, then try again.
           </p>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full"
-            onClick={handleResetExport}
-          >
-            Retry
-          </Button>
+          <div className="flex flex-col w-full gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => openUserProfile()}
+            >
+              Open account
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={handleResetExport}
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       );
     }

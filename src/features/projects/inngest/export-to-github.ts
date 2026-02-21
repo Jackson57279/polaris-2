@@ -20,6 +20,28 @@ type FileWithUrl = Doc<"files"> & {
   storageUrl: string | null;
 };
 
+const getHttpStatus = (error: unknown): number | undefined => {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  if ("status" in error && typeof error.status === "number") {
+    return error.status;
+  }
+
+  if (
+    "response" in error &&
+    typeof error.response === "object" &&
+    error.response !== null &&
+    "status" in error.response &&
+    typeof error.response.status === "number"
+  ) {
+    return error.response.status;
+  }
+
+  return undefined;
+};
+
 export const exportToGithub = inngest.createFunction(
   {
     id: "export-to-github",
@@ -79,12 +101,31 @@ export const exportToGithub = inngest.createFunction(
 
     // Create the new repository with auto_init to have an initial commit
     const { data: repo } = await step.run("create-repo", async () => {
-      return await octokit.rest.repos.createForAuthenticatedUser({
-        name: repoName,
-        description: description || `Exported from Polaris`,
-        private: visibility === "private",
-        auto_init: true,
-      });
+      try {
+        return await octokit.rest.repos.createForAuthenticatedUser({
+          name: repoName,
+          description: description || `Exported from Polaris`,
+          private: visibility === "private",
+          auto_init: true,
+        });
+      } catch (error) {
+        const status = getHttpStatus(error);
+        const message = error instanceof Error ? error.message : "";
+
+        if (status === 404 || message.includes("Not Found")) {
+          await convex.mutation(api.system.updateExportStatus, {
+            internalKey,
+            projectId,
+            status: "failed",
+          });
+
+          throw new NonRetriableError(
+            "GitHub export needs repository access. Reconnect GitHub and grant repository permissions, then retry."
+          );
+        }
+
+        throw error;
+      }
     });
 
     // Wait for GitHub to initialize the repo (auto_init is async on GitHub's side)

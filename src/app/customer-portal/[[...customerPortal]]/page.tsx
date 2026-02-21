@@ -9,7 +9,11 @@ export const metadata: Metadata = {
 const CustomerPortalPage = () => {
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
-      <UserProfile path="/customer-portal" routing="path" />
+      <UserProfile
+        path="/customer-portal"
+        routing="path"
+        additionalOAuthScopes={{ github: ["repo"] }}
+      />
     </main>
   );
 };

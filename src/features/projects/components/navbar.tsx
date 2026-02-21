@@ -153,7 +153,13 @@ export const Navbar = ({
         <Button variant="outline" size="sm" asChild>
           <Link href="/pricing">Pricing</Link>
         </Button>
-        <UserButton />
+        <UserButton
+          userProfileProps={{
+            additionalOAuthScopes: {
+              github: ["repo"],
+            },
+          }}
+        />
       </div>
     </nav>
   )
