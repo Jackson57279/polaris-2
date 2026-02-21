@@ -73,27 +73,14 @@ export const processMessage = inngest.createFunction(
 
     await step.sleep("wait-for-db-sync", "1s");
 
-    const { conversation, isPro } = await step.run(
-      "get-conversation-and-pro-status",
+    const { conversation } = await step.run(
+      "get-conversation",
       async () => {
-        const [conv, proj] = await Promise.all([
-          convex.query(api.system.getConversationById, {
-            internalKey,
-            conversationId,
-          }),
-          convex.query(api.system.getProjectById, {
-            internalKey,
-            projectId,
-          }),
-        ]);
-        let hasPro = false;
-        if (proj) {
-          hasPro = await convex.query(api.system.hasActiveSubscription, {
-            internalKey,
-            clerkUserId: proj.ownerId,
-          });
-        }
-        return { conversation: conv, isPro: hasPro };
+        const conv = await convex.query(api.system.getConversationById, {
+          internalKey,
+          conversationId,
+        });
+        return { conversation: conv };
       }
     );
 
@@ -101,9 +88,8 @@ export const processMessage = inngest.createFunction(
       throw new NonRetriableError("Conversation not found");
     }
 
-    const codingModel = isPro
-      ? "google/gemini-3.1-pro-preview"
-      : "minimax/minimax-m2.5";
+    const codingModel =
+      process.env.POLARIS_CODING_MODEL ?? "google/gemini-3.1-pro-preview";
 
     // Fetch recent messages for conversation context
     const recentMessages = await step.run("get-recent-messages", async () => {

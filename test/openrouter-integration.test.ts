@@ -128,9 +128,12 @@ describe("OpenRouter Model Configuration", () => {
     expect(capturedCalls[0].modelId).toBe("qwen/qwen3-coder-next");
   });
 
-  it("inngest function uses minimax/minimax-m2.5", async () => {
-    const source = await Bun.file("src/inngest/functions.ts").text();
-    expect(source).toContain("openrouter('minimax/minimax-m2.5')");
+  it("conversation processing defaults to Gemini 3.1 Pro Preview", async () => {
+    const source = await Bun.file(
+      "src/features/conversations/inngest/process-message.ts",
+    ).text();
+    expect(source).toContain("process.env.POLARIS_CODING_MODEL");
+    expect(source).toContain("google/gemini-3.1-pro-preview");
   });
 
   it("all routes configure OpenRouter with correct baseURL", async () => {
