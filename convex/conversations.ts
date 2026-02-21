@@ -83,9 +83,12 @@ export const getByProject = query({
   },
 });
 
+import { paginationOptsValidator } from "convex/server";
+
 export const getMessages = query({
   args: {
     conversationId: v.id("conversations"),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     const identity = await verifyAuth(ctx);
@@ -111,7 +114,7 @@ export const getMessages = query({
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId)
       )
-      .order("asc")
-      .collect();
+      .order("desc")
+      .paginate(args.paginationOpts);
   },
 });

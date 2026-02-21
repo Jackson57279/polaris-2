@@ -105,7 +105,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_subscription", ["subscriptionId"])
-    .index("by_clerk_user", ["clerkUserId"]),
+    .index("by_clerk_user", ["clerkUserId"])
+    .index("by_clerk_user_status", ["clerkUserId", "status"]),
 
   wallets: defineTable({
     clerkUserId: v.string(),

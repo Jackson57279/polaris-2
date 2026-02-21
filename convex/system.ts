@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const validateInternalKey = (key: string) => {
   const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
@@ -44,11 +45,13 @@ export const hasActiveSubscription = query({
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
-    const subs = await ctx.db
+    const activeSub = await ctx.db
       .query("subscriptions")
-      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", args.clerkUserId))
-      .collect();
-    return subs.some((s) => s.status === "active");
+      .withIndex("by_clerk_user_status", (q) => 
+        q.eq("clerkUserId", args.clerkUserId).eq("status", "active")
+      )
+      .first();
+    return activeSub !== null;
   },
 });
 
@@ -425,38 +428,9 @@ export const deleteFile = mutation({
       throw new Error("File not found");
     }
 
-    // Recursively delete file/folder and all descendants
-    const deleteRecursive = async (fileId: typeof args.fileId) => {
-      const item = await ctx.db.get(fileId);
-
-      if (!item) {
-        return;
-      }
-
-      // If it's a folder, delete all children first
-      if (item.type === "folder") {
-        const children = await ctx.db
-          .query("files")
-          .withIndex("by_project_parent", (q) =>
-            q.eq("projectId", item.projectId).eq("parentId", fileId)
-          )
-          .collect();
-
-        for (const child of children) {
-          await deleteRecursive(child._id);
-        }
-      }
-
-      // Delete storage file if it exists
-      if (item.storageId) {
-        await ctx.storage.delete(item.storageId);
-      }
-
-      // Delete the file/folder itself
-      await ctx.db.delete(fileId);
-    };
-
-    await deleteRecursive(args.fileId);
+    await ctx.scheduler.runAfter(0, internal.actions.deleteRecursiveAction, {
+      fileId: args.fileId,
+    });
 
     return args.fileId;
   },

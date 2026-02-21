@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 
 const validateInternalKey = (key: string) => {
   const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
@@ -10,6 +10,122 @@ const validateInternalKey = (key: string) => {
     throw new Error("Invalid internal key");
   }
 };
+
+export const upsertPaymentInternal = internalMutation({
+  args: {
+    paymentId: v.string(),
+    clerkUserId: v.string(),
+    status: v.union(v.literal("pending"), v.literal("paid"), v.literal("failed")),
+    totalAmount: v.number(),
+    currency: v.string(),
+    paymentMethod: v.optional(v.string()),
+    paymentMethodType: v.optional(v.string()),
+    metadataJson: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("payments")
+      .withIndex("by_payment", (q) => q.eq("paymentId", args.paymentId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        clerkUserId: args.clerkUserId,
+        status: args.status,
+        totalAmount: args.totalAmount,
+        currency: args.currency,
+        paymentMethod: args.paymentMethod,
+        paymentMethodType: args.paymentMethodType,
+        metadataJson: args.metadataJson,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("payments", {
+      paymentId: args.paymentId,
+      clerkUserId: args.clerkUserId,
+      status: args.status,
+      totalAmount: args.totalAmount,
+      currency: args.currency,
+      paymentMethod: args.paymentMethod,
+      paymentMethodType: args.paymentMethodType,
+      metadataJson: args.metadataJson,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+});
+
+export const upsertSubscriptionInternal = internalMutation({
+  args: {
+    subscriptionId: v.string(),
+    clerkUserId: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("incomplete"),
+      v.literal("upcoming"),
+      v.literal("ended"),
+      v.literal("abandoned"),
+    ),
+    planId: v.optional(v.string()),
+    quantity: v.optional(v.number()),
+    currentPeriodEnd: v.optional(v.number()),
+    metadataJson: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_subscription", (q) => q.eq("subscriptionId", args.subscriptionId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        clerkUserId: args.clerkUserId,
+        status: args.status,
+        planId: args.planId,
+        quantity: args.quantity,
+        currentPeriodEnd: args.currentPeriodEnd,
+        metadataJson: args.metadataJson,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("subscriptions", {
+      subscriptionId: args.subscriptionId,
+      clerkUserId: args.clerkUserId,
+      status: args.status,
+      planId: args.planId,
+      quantity: args.quantity,
+      currentPeriodEnd: args.currentPeriodEnd,
+      metadataJson: args.metadataJson,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+});
+
+export const recordWebhookEventInternal = internalMutation({
+  args: {
+    type: v.string(),
+    payloadJson: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("billing_webhook_events", {
+      type: args.type,
+      payloadJson: args.payloadJson,
+      createdAt: Date.now(),
+    });
+  }
+});
 
 export const upsertPayment = mutation({
   args: {

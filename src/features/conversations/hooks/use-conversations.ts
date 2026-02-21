@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -8,9 +8,10 @@ export const useConversation = (id: Id<"conversations"> | null) => {
 };
 
 export const useMessages = (conversationId: Id<"conversations"> | null) => {
-  return useQuery(
+  return usePaginatedQuery(
     api.conversations.getMessages,
-    conversationId ? { conversationId } : "skip"
+    conversationId ? { conversationId } : "skip",
+    { initialNumItems: 50 }
   );
 };
 

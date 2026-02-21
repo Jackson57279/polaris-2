@@ -66,10 +66,14 @@ export const ConversationSidebar = ({
     selectedConversationId ?? conversations?.[0]?._id ?? null;
 
   const activeConversation = useConversation(activeConversationId);
-  const conversationMessages = useMessages(activeConversationId);
+  const {
+    results: conversationMessages,
+    status: messagesStatus,
+    loadMore: loadMoreMessages
+  } = useMessages(activeConversationId);
 
   // Check if any message is currently processing
-  const isProcessing = conversationMessages?.some(
+  const isProcessing = conversationMessages.some(
     (msg) => msg.status === "processing"
   );
 
@@ -161,7 +165,19 @@ export const ConversationSidebar = ({
         </div>
         <Conversation className="flex-1">
           <ConversationContent>
-            {conversationMessages?.map((message, messageIndex) => (
+            {messagesStatus === "CanLoadMore" && (
+              <div className="flex justify-center p-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => loadMoreMessages(50)}
+                >
+                  Load More
+                </Button>
+              </div>
+            )}
+            {/* Reverse the array for display if we ordered them by desc to paginate correctly */}
+            {conversationMessages.slice().reverse().map((message, messageIndex) => (
               <Message
                 key={message._id}
                 from={message.role}
@@ -182,7 +198,7 @@ export const ConversationSidebar = ({
                 </MessageContent>
                 {message.role === "assistant" &&
                   message.status === "completed" &&
-                  messageIndex === (conversationMessages?.length ?? 0) - 1 && (
+                  messageIndex === conversationMessages.length - 1 && (
                     <MessageActions>
                       <MessageAction
                         onClick={() => {

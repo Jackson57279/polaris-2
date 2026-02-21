@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { verifyAuth } from "./auth";
 import { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 
 export const getFiles = query({
   args: { projectId: v.id("projects") },
@@ -320,40 +321,9 @@ export const deleteFile = mutation({
       throw new Error("Unauthorized to access this project");
     }
 
-    // Recursively delete file/folder and all descendants
-    const deleteRecursive = async (fileId: Id<"files">) => {
-      const item = await ctx.db.get("files", fileId);
-
-      if (!item) {
-        return;
-      }
-
-      // If it's a folder, delete all children first
-       if (item.type === "folder") {
-         const children = await ctx.db
-          .query("files")
-          .withIndex("by_project_parent", (q) =>
-            q
-              .eq("projectId", item.projectId)
-              .eq("parentId", fileId)
-          )
-          .collect();
-
-          for (const child of children) {
-            await deleteRecursive(child._id);
-          }
-       }
-
-       // Delete storage file if it exists
-       if (item.storageId) {
-        await ctx.storage.delete(item.storageId);
-      }
-
-      // Delete the file/folder itself
-      await ctx.db.delete("files", fileId);
-    };
-
-    await deleteRecursive(args.id);
+    await ctx.scheduler.runAfter(0, internal.actions.deleteRecursiveAction, {
+      fileId: args.id,
+    });
 
     await ctx.db.patch("projects", file.projectId, {
       updatedAt: Date.now(),
