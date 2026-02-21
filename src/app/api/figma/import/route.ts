@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 import { convex } from "@/lib/convex-client";
 import { inngest } from "@/inngest/client";
+import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
 
 import { api } from "../../../../../convex/_generated/api";
 
@@ -33,16 +34,27 @@ export async function POST(request: Request) {
 
   const projectName = fileName.replace(/\.fig$/i, "").replace(/[-_]/g, " ");
 
-  const projectId = await convex.mutation(api.system.createProject, {
+  const { projectId, conversationId } = await convex.mutation(
+    api.system.createProjectWithConversation,
+    {
+      internalKey,
+      projectName,
+      conversationTitle: DEFAULT_CONVERSATION_TITLE,
+      ownerId: userId,
+    }
+  );
+
+  await convex.mutation(api.system.updateImportStatus, {
     internalKey,
-    name: projectName,
-    ownerId: userId,
+    projectId,
+    status: "importing",
   });
 
   const event = await inngest.send({
     name: "figma/import.fig",
     data: {
       projectId,
+      conversationId,
       figFileUrl,
       fileName,
     },

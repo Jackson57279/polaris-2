@@ -637,25 +637,6 @@ export const createProject = mutation({
   },
 });
 
-export const createConversationForProject = mutation({
-  args: {
-    internalKey: v.string(),
-    projectId: v.id("projects"),
-    title: v.string(),
-  },
-  handler: async (ctx, args) => {
-    validateInternalKey(args.internalKey);
-
-    const conversationId = await ctx.db.insert("conversations", {
-      projectId: args.projectId,
-      title: args.title,
-      updatedAt: Date.now(),
-    });
-
-    return conversationId;
-  },
-});
-
 export const createProjectWithConversation = mutation({
   args: {
     internalKey: v.string(),

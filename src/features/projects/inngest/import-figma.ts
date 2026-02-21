@@ -1,14 +1,14 @@
 import { NonRetriableError } from "inngest";
 
 import { convex } from "@/lib/convex-client";
-import { inngest } from "@/inngest/client";
-import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import { inngest } from "@/inngest/client";
 
 interface ImportFigmaEvent {
   projectId: Id<"projects">;
+  conversationId: Id<"conversations">;
   figFileUrl: string;
   fileName: string;
 }
@@ -33,7 +33,7 @@ export const importFigma = inngest.createFunction(
   },
   { event: "figma/import.fig" },
   async ({ event, step }) => {
-    const { projectId, figFileUrl, fileName } =
+    const { projectId, conversationId, fileName } =
       event.data as ImportFigmaEvent;
 
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
@@ -42,15 +42,6 @@ export const importFigma = inngest.createFunction(
     }
 
     const projectName = fileName.replace(/\.fig$/i, "").replace(/[-_]/g, " ");
-
-    const conversationId = await step.run("create-conversation", async () => {
-      return await convex.mutation(api.system.createConversationForProject, {
-        internalKey,
-        projectId,
-        title: DEFAULT_CONVERSATION_TITLE,
-      });
-    });
-
     const prompt = buildDesignPrompt(projectName, fileName);
 
     const assistantMessageId = await step.run("create-messages", async () => {
@@ -72,17 +63,15 @@ export const importFigma = inngest.createFunction(
       });
     });
 
-    await step.run("trigger-agent", async () => {
-      await inngest.send({
-        name: "message/sent",
-        data: {
-          messageId: assistantMessageId,
-          conversationId,
-          projectId,
-          message: prompt,
-          imageUrls: [],
-        },
-      });
+    await step.sendEvent("trigger-agent", {
+      name: "message/sent",
+      data: {
+        messageId: assistantMessageId,
+        conversationId,
+        projectId,
+        message: prompt,
+        imageUrls: [],
+      },
     });
 
     await step.run("set-completed-status", async () => {
