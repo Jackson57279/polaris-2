@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   CheckCircle2Icon,
   ExternalLinkIcon,
@@ -10,6 +9,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { SiVercel, SiNetlify } from "react-icons/si";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,11 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
+import {
+  useConversations,
+  useCreateConversation,
+} from "@/features/conversations/hooks/use-conversations";
 
 import { useProject } from "../hooks/use-projects";
 import { useDeploy, DeployProvider } from "../hooks/use-deploy";
@@ -44,14 +49,17 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
   const [open, setOpen] = useState(false);
   const [provider, setProvider] = useState<DeployProvider>("vercel");
   const [token, setToken] = useState("");
-  const router = useRouter();
+  const [isSendingToChat, setIsSendingToChat] = useState(false);
 
   const { status, log, error, deployedUrl, providerDeployId, deploy, reset } =
     useDeploy();
+  const conversations = useConversations(projectId);
+  const createConversation = useCreateConversation();
 
   const persistedStatus = project?.deploymentStatus;
   const persistedUrl = project?.deploymentUrl;
   const persistedProvider = project?.deploymentProvider;
+  const persistedError = project?.deploymentError;
 
   useEffect(() => {
     if (open) {
@@ -106,6 +114,8 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
 
   const liveUrl = deployedUrl ?? persistedUrl;
   const displayProvider = persistedProvider ?? provider;
+  const displayError =
+    error ?? persistedError ?? "Something went wrong. Please check your token and try again.";
 
   const statusLabel =
     status === "building"
@@ -118,6 +128,71 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
 
   const handleReset = () => {
     reset();
+  };
+
+  const buildDeployFixPrompt = () => {
+    const providerLabel = PROVIDER_LABEL[displayProvider];
+    const installCommand = project?.settings?.installCommand ?? "npm install";
+    const buildCommand = project?.settings?.buildCommand ?? "npm run build";
+    const outputDir = project?.settings?.outputDir ?? "(auto-detect)";
+    const trimmedLog = log.trim();
+    const logSnippet = trimmedLog ? trimmedLog.slice(-4000) : "No local deploy log captured.";
+
+    return [
+      `Deployment to ${providerLabel} failed. Please fix the project so deployment succeeds.`,
+      "",
+      "Context:",
+      `- Provider: ${providerLabel}`,
+      `- Error: ${displayError}`,
+      `- Install command: ${installCommand}`,
+      `- Build command: ${buildCommand}`,
+      `- Output directory: ${outputDir}`,
+      "",
+      "Recent deploy log:",
+      "```",
+      logSnippet,
+      "```",
+      "",
+      "Please identify the root cause, make the required code/config changes, and explain the fix.",
+    ].join("\n");
+  };
+
+  const handleAddToChat = async () => {
+    if (isSendingToChat) return;
+    setIsSendingToChat(true);
+
+    try {
+      let conversationId = conversations?.[0]?._id;
+
+      if (!conversationId) {
+        conversationId = await createConversation({
+          projectId,
+          title: DEFAULT_CONVERSATION_TITLE,
+        });
+      }
+
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          message: buildDeployFixPrompt(),
+        }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error ?? "Unable to send deploy error to chat");
+      }
+
+      toast.success("Deploy error sent to chat");
+    } catch {
+      toast.error("Failed to send deploy error to chat");
+    } finally {
+      setIsSendingToChat(false);
+    }
   };
 
   const renderContent = () => {
@@ -174,7 +249,7 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
           <XCircleIcon className="size-6 text-rose-500" />
           <p className="text-sm font-medium">Deployment failed</p>
           <p className="text-xs text-muted-foreground text-center">
-            {error ?? "Something went wrong. Please check your token and try again."}
+            {displayError}
           </p>
           {log && (
             <pre className="text-xs bg-muted rounded p-2 overflow-auto max-h-24 w-full whitespace-pre-wrap break-all">
@@ -183,9 +258,21 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
           )}
           <Button
             size="sm"
+            className="w-full"
+            onClick={handleAddToChat}
+            disabled={isSendingToChat}
+          >
+            {isSendingToChat ? (
+              <LoaderIcon className="size-3.5 mr-1.5 animate-spin" />
+            ) : null}
+            Add to chat
+          </Button>
+          <Button
+            size="sm"
             variant="outline"
             className="w-full"
             onClick={handleReset}
+            disabled={isSendingToChat}
           >
             Retry
           </Button>
