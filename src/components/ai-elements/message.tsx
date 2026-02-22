@@ -22,12 +22,14 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import { AgentBadge } from "./agent-badge";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
+  agentType?: string | null;
 };
 
-export const Message = ({ className, from, ...props }: MessageProps) => (
+export const Message = ({ className, from, agentType, ...props }: MessageProps) => (
   <div
     className={cn(
       "group flex w-full max-w-[80%] flex-col gap-2",
@@ -35,7 +37,9 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
       className
     )}
     {...props}
-  />
+  >
+    {from === "assistant" && agentType && <AgentBadge agentType={agentType} />}
+  </div>
 );
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
