@@ -9,7 +9,7 @@ export interface ParsedSkill {
   metadata?: SkillMetadata;
 }
 
-const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
+const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---(?:\n|$)([\s\S]*)$/;
 
 interface SkillFrontmatter {
   name?: string;

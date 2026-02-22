@@ -77,6 +77,7 @@ export default defineSchema({
         v.literal("cancelled")
       )
     ),
+    agentType: v.optional(v.string()),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_project_status", ["projectId", "status"]),

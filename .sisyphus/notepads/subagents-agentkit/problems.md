@@ -1,0 +1,3 @@
+- Unresolved issue: Replacing ToolOptions shim with real type import when repository provides types.ts
+- Unresolved issue: Ensure that tool factories' actual invocation pattern is stable across environments (some factories expect ToolOptions, others not)
+- Observation: Build succeeded with dummy FIRECRAWL_API_KEY in this environment; remove dummy in real CI where FIRECRAWL is configured

@@ -1,0 +1,32 @@
+TASK 12: Add agentType field to messages table
+STATUS: COMPLETED ✓
+
+CHANGES MADE:
+- File: convex/schema.ts
+- Location: messages table (lines 68-83)
+- Added field: agentType: v.optional(v.string())
+- Position: After status field, before closing brace
+
+SCHEMA VALIDATION:
+- LSP diagnostics: No errors found
+- TypeScript compilation: Valid
+- Backwards compatibility: Maintained (field is optional)
+
+MESSAGES TABLE STRUCTURE (UPDATED):
+  messages: defineTable({
+    conversationId: v.id("conversations"),
+    projectId: v.id("projects"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    status: v.optional(v.union(...)),
+    agentType: v.optional(v.string()),  ← NEW FIELD
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_project_status", ["projectId", "status"]),
+
+VERIFICATION:
+✓ Field added correctly
+✓ Type is optional (v.optional)
+✓ Follows existing schema patterns
+✓ No TypeScript errors
+✓ No breaking changes to existing messages

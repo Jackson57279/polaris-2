@@ -1,0 +1,1 @@
+src/features/conversations/inngest/agents/planner.ts(2,24): error TS2307: Cannot find module '@ai-sdk/openai' or its corresponding type declarations.

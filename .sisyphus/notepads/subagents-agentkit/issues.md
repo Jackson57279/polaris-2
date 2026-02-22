@@ -1,0 +1,6 @@
+- Issue: ToolOptions type import challenge in index.ts
+  - Attempted to import ToolOptions from ./types but the file did not exist in this environment.
+  - Used a TypeScript shim (type ToolOptions = any) to unblock progress.
+  - Plan to replace with the actual type import once repository provides the types.ts module.
+- Build issue workaround: Next.js build required a FIRECRAWL_API_KEY for runtime dependencies.
+  - Worked around by injecting a dummy FIRECRAWL_API_KEY in the build command.

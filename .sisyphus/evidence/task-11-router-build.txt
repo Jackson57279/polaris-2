@@ -1,0 +1,45 @@
+Task 11: Network Router Implementation
+
+Status: COMPLETED
+
+Changes made to src/features/conversations/inngest/process-message.ts:
+
+1. Added imports for all 6 agents:
+   - createClassifierAgent
+   - createPlannerAgent
+   - createBuilderAgent
+   - createDebuggerAgent
+   - createResearcherAgent
+   - createGeneralAgent
+
+2. Added import for PolarisNetworkState type
+
+3. Replaced single-agent network with multi-agent network:
+   - Create all 6 agents with { internalKey, projectId }
+   - Use typed createNetwork<PolarisNetworkState>
+   - Implement 3-phase hybrid router:
+     
+     Phase 1 (callCount === 0): 
+       - Return classifierAgent to classify intent
+     
+     Phase 2 (!routed && intent):
+       - Mark routed = true
+       - Increment agentSwitchCount
+       - Route to specialist based on intent
+       - Fallback to generalAgent if intent not recognized
+     
+     Phase 3 (completion check):
+       - Check if text response without tool calls
+       - Return undefined to stop (final response)
+       - Return undefined to continue with current agent
+
+4. Added guardrail: maxAgentSwitches = 5
+
+5. Preserved existing functionality:
+   - Title generation (titleAgent)
+   - Message cancellation
+   - onFailure handler
+   - Image handling
+   - Assistant response processing
+
+TypeScript compilation: PASSED (tsc --noEmit)

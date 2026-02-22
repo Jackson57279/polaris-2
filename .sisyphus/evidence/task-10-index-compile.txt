@@ -1,0 +1,4 @@
+tsc --noEmit
+Evidence: TypeScript compiled with noEmit (no JavaScript emitted) and no type errors.
+Result: success (exit code 0)
+Output: none

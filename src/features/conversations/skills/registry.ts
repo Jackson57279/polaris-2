@@ -48,4 +48,20 @@ export class SkillRegistry {
       .map((skill) => `## ${skill.name}\n${skill.instructions}`)
       .join("\n\n");
   }
+
+  /**
+   * Load external skills from the filesystem and register them.
+   * Returns the number of skills loaded.
+   */
+  async loadExternalSkills(projectRoot: string): Promise<number> {
+    const { discoverSkills } = await import("./loader/skill-loader");
+    const externalSkills = await discoverSkills(projectRoot);
+    for (const skill of externalSkills) {
+      this.register(skill);
+    }
+    if (externalSkills.length > 0) {
+      console.log(`Loaded ${externalSkills.length} external skill(s)`);
+    }
+    return externalSkills.length;
+  }
 }
