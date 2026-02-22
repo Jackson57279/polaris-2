@@ -18,6 +18,8 @@ import { createCreateFolderTool } from './tools/create-folder';
 import { createRenameFileTool } from './tools/rename-file';
 import { createDeleteFilesTool } from './tools/delete-files';
 import { createScrapeUrlsTool } from './tools/scrape-urls';
+import { SkillRegistry, isSkillSystemEnabled } from '../skills';
+import { fileManagementSkill, webResearchSkill } from '../skills';
 
 interface MessageEvent {
   messageId: Id<"messages">;
@@ -165,18 +167,22 @@ export const processMessage = inngest.createFunction(
       }
     }
 
-    // Create the coding agent with file tools
-    const codingAgent = createAgent({
-      name: "polaris-coding-agent",
-      description: "An expert AI coding assistant",
-      system: systemPrompt,
-model: openai({
-         model: codingModel,
-         apiKey: process.env.OPENROUTER_API_KEY,
-         baseUrl: "https://openrouter.ai/api/v1",
-         defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 }
-        }),
-       tools: [
+    let tools;
+    let agentSystemPrompt = systemPrompt;
+
+    if (isSkillSystemEnabled()) {
+      const registry = new SkillRegistry();
+      registry.register(fileManagementSkill({ internalKey, projectId }));
+      registry.register(webResearchSkill({ internalKey }));
+
+      tools = registry.getTools();
+
+      const skillInstructions = registry.getSystemInstructions();
+      if (skillInstructions) {
+        agentSystemPrompt += '\n\n' + skillInstructions;
+      }
+    } else {
+      tools = [
         createListFilesTool({ internalKey, projectId }),
         createReadFilesTool({ internalKey }),
         createUpdateFileTool({ internalKey }),
@@ -185,7 +191,20 @@ model: openai({
         createRenameFileTool({ internalKey }),
         createDeleteFilesTool({ internalKey }),
         createScrapeUrlsTool(),
-       ],
+      ];
+    }
+
+    const codingAgent = createAgent({
+      name: "polaris-coding-agent",
+      description: "An expert AI coding assistant",
+      system: agentSystemPrompt,
+      model: openai({
+        model: codingModel,
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseUrl: "https://openrouter.ai/api/v1",
+        defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 },
+      }),
+      tools,
     });
 
     // Create network with single agent
