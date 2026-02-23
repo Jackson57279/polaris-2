@@ -1,5 +1,4 @@
-import { createAgent } from '@inngest/agent-kit';
-import { openai } from '@ai-sdk/openai';
+import { createAgent, openai } from '@inngest/agent-kit';
 import { ToolOptions, createReadOnlyTools } from '../tools';
 import { RESEARCHER_SYSTEM_PROMPT } from '../constants';
 
@@ -11,7 +10,7 @@ export const createResearcherAgent = (opts: ToolOptions) => {
     model: openai({
       model: 'x-ai/grok-4.1-fast',
       apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: 'https://openrouter.ai/api/v1',
+      baseUrl: 'https://openrouter.ai/api/v1',
     }),
     tools: createReadOnlyTools(opts),
   });

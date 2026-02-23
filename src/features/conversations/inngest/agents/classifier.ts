@@ -1,6 +1,5 @@
-import { createAgent, createTool } from '@inngest/agent-kit';
+import { createAgent, createTool, openai } from '@inngest/agent-kit';
 import { z } from 'zod';
-declare const openai: any;
 import { ToolOptions } from '../tools';
 import { AgentIntent } from '../types';
 import { CLASSIFIER_SYSTEM_PROMPT } from '../constants';
@@ -30,7 +29,7 @@ export const createClassifierAgent = (opts: ToolOptions) => {
     model: openai({
       model: 'x-ai/grok-4.1-fast',
       apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: 'https://openrouter.ai/api/v1',
+      baseUrl: 'https://openrouter.ai/api/v1',
     }),
     tools: [setIntentTool],
   });
