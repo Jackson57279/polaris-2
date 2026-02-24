@@ -214,24 +214,18 @@ export const processMessage = inngest.createFunction(
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
     }
 
-    const assistantResponse = await step.run(
-      "run-coding-network",
-      async () => {
-        const result = await network.run(fullMessage);
-        const lastResult = result.state.results.at(-1);
-        const textMessage = lastResult?.output.find(
-          (m) => m.type === "text" && m.role === "assistant"
-        );
-
-        if (textMessage?.type !== "text") {
-          return "I processed your request. Let me know if you need anything else!";
-        }
-
-        return typeof textMessage.content === "string"
-          ? textMessage.content
-          : textMessage.content.map((c) => c.text).join("");
-      }
+    const result = await network.run(fullMessage);
+    const lastResult = result.state.results.at(-1);
+    const textMessage = lastResult?.output.find(
+      (m) => m.type === "text" && m.role === "assistant"
     );
+
+    const assistantResponse =
+      textMessage?.type === "text"
+        ? (typeof textMessage.content === "string"
+            ? textMessage.content
+            : textMessage.content.map((c) => c.text).join(""))
+        : "I processed your request. Let me know if you need anything else!";
 
     // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {
