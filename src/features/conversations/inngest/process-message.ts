@@ -1,23 +1,25 @@
-import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
+import { createAgent, openai, createNetwork } from "@inngest/agent-kit";
+import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { NonRetriableError } from "inngest";
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
-import { 
-  CODING_AGENT_SYSTEM_PROMPT, 
-  TITLE_GENERATOR_SYSTEM_PROMPT
+import {
+  CODING_AGENT_SYSTEM_PROMPT,
+  TITLE_GENERATOR_SYSTEM_PROMPT,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
-import { createReadFilesTool } from './tools/read-files';
-import { createListFilesTool } from './tools/list-files';
-import { createUpdateFileTool } from './tools/update-file';
-import { createCreateFilesTool } from './tools/create-files';
-import { createCreateFolderTool } from './tools/create-folder';
-import { createRenameFileTool } from './tools/rename-file';
-import { createDeleteFilesTool } from './tools/delete-files';
-import { createScrapeUrlsTool } from './tools/scrape-urls';
+import { createReadFilesTool } from "./tools/read-files";
+import { createListFilesTool } from "./tools/list-files";
+import { createUpdateFileTool } from "./tools/update-file";
+import { createCreateFilesTool } from "./tools/create-files";
+import { createCreateFolderTool } from "./tools/create-folder";
+import { createRenameFileTool } from "./tools/rename-file";
+import { createDeleteFilesTool } from "./tools/delete-files";
+import { createScrapeUrlsTool } from "./tools/scrape-urls";
 
 interface MessageEvent {
   messageId: Id<"messages">;
@@ -121,36 +123,28 @@ export const processMessage = inngest.createFunction(
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     if (shouldGenerateTitle) {
-       const titleAgent = createAgent({
-        name: "title-generator",
-        system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: openai({
-          model: "x-ai/grok-4.1-fast",
-          apiKey: process.env.OPENROUTER_API_KEY,
-          baseUrl: "https://openrouter.ai/api/v1",
-          defaultParameters: { temperature: 0, max_completion_tokens: 50 },
-        }),
-       });
+      const openrouter = createOpenAICompatible({
+        name: "openrouter",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: "https://openrouter.ai/api/v1",
+      });
 
       const generatedTitle = await step.run(
         "generate-conversation-title",
         async () => {
-          const { output } = await titleAgent.run(message);
+          const result = await generateText({
+            model: openrouter("x-ai/grok-4.1-fast"),
+            // Keep title prompt short and deterministic
+            prompt: `${TITLE_GENERATOR_SYSTEM_PROMPT}\n\nUser message:\n${message}`,
+            experimental_telemetry: {
+              isEnabled: true,
+              recordInputs: true,
+              recordOutputs: true,
+            },
+          });
 
-          const textMessage = output.find(
-            (m) => m.type === "text" && m.role === "assistant"
-          );
-
-          if (textMessage?.type !== "text") {
-            return null;
-          }
-
-          return typeof textMessage.content === "string"
-            ? textMessage.content.trim()
-            : textMessage.content
-                .map((c) => c.text)
-                .join("")
-                .trim();
+          const text = result.text.trim();
+          return text.length > 0 ? text : null;
         }
       );
 
@@ -170,13 +164,16 @@ export const processMessage = inngest.createFunction(
       name: "polaris-coding-agent",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-model: openai({
-         model: codingModel,
-         apiKey: process.env.OPENROUTER_API_KEY,
-         baseUrl: "https://openrouter.ai/api/v1",
-         defaultParameters: { temperature: 0.3, max_completion_tokens: 16000 }
-        }),
-       tools: [
+      model: openai({
+        model: codingModel,
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseUrl: "https://openrouter.ai/api/v1",
+        defaultParameters: {
+          temperature: 0.3,
+          max_completion_tokens: 8000,
+        },
+      }),
+      tools: [
         createListFilesTool({ internalKey, projectId }),
         createReadFilesTool({ internalKey }),
         createUpdateFileTool({ internalKey }),
@@ -185,14 +182,14 @@ model: openai({
         createRenameFileTool({ internalKey }),
         createDeleteFilesTool({ internalKey }),
         createScrapeUrlsTool(),
-       ],
+      ],
     });
 
     // Create network with single agent
     const network = createNetwork({
       name: "polaris-coding-network",
       agents: [codingAgent],
-      maxIter: 20,
+      maxIter: 10,
       router: ({ network }) => {
         const lastResult = network.state.results.at(-1);
         const hasTextResponse = lastResult?.output.some(
