@@ -91,6 +91,9 @@ export const ConversationSidebar = ({
   const [input, setInput] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [youtubeError, setYoutubeError] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [fileSizeError, setFileSizeError] = useState("");
+  const [mediaConflictError, setMediaConflictError] = useState("");
   const [
     selectedConversationId,
     setSelectedConversationId,
@@ -101,7 +104,7 @@ export const ConversationSidebar = ({
   ] = useState(false);
 
   const createConversation = useCreateConversation();
-  const { startUpload, isUploading } = useUploadThing("videoUploader");
+  const { startUpload } = useUploadThing("videoUploader");
   const conversations = useConversations(projectId);
 
   const activeConversationId =
@@ -151,6 +154,21 @@ export const ConversationSidebar = ({
       return;
     }
 
+    // Clear previous errors
+    setUploadError("");
+    setFileSizeError("");
+    setMediaConflictError("");
+
+    // Check for image+video combination
+    const hasImages = message.files.some((f) => f.mediaType?.startsWith("image/"));
+    const hasVideos = message.files.some((f) => f.mediaType?.startsWith("video/"));
+    
+    if (hasImages && hasVideos) {
+      setMediaConflictError("Cannot attach both images and videos. Please choose one.");
+      toast.error("Cannot attach both images and videos");
+      return;
+    }
+
     let conversationId = activeConversationId;
 
     if (!conversationId) {
@@ -172,9 +190,37 @@ export const ConversationSidebar = ({
         )
       );
 
+    // Validate file sizes and types
+    const MAX_FILE_SIZE = 32 * 1024 * 1024; // 32MB
+    const SUPPORTED_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+    
+    for (const file of videoFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        setFileSizeError("Video must be less than 32MB");
+        toast.error("Video must be less than 32MB");
+        return;
+      }
+      if (!SUPPORTED_TYPES.includes(file.type)) {
+        setUploadError("Only MP4, WebM, and MOV files are supported");
+        toast.error("Only MP4, WebM, and MOV files are supported");
+        return;
+      }
+    }
+
     if (videoFiles.length > 0) {
-      const uploaded = await startUpload(videoFiles);
-      videoUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
+      try {
+        const uploaded = await startUpload(videoFiles);
+        if (!uploaded || uploaded.length === 0) {
+          setUploadError("Video upload failed. Please try again.");
+          toast.error("Video upload failed. Please try again.");
+          return;
+        }
+        videoUrls = uploaded.map((f) => f.ufsUrl);
+      } catch {
+        setUploadError("Video upload failed. Please try again.");
+        toast.error("Video upload failed. Please try again.");
+        return;
+      }
     }
 
     // Handle YouTube URL
@@ -198,6 +244,9 @@ export const ConversationSidebar = ({
     setInput("");
     setYoutubeUrl("");
     setYoutubeError("");
+    setUploadError("");
+    setFileSizeError("");
+    setMediaConflictError("");
   }
 
   return (
@@ -318,6 +367,24 @@ export const ConversationSidebar = ({
             <div className="mb-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 flex items-center gap-2">
               <XIcon className="size-4 text-destructive flex-shrink-0" />
               <span className="text-xs text-destructive">{youtubeError}</span>
+            </div>
+          )}
+          {uploadError && (
+            <div className="mb-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 flex items-center gap-2">
+              <XIcon className="size-4 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">{uploadError}</span>
+            </div>
+          )}
+          {fileSizeError && (
+            <div className="mb-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 flex items-center gap-2">
+              <XIcon className="size-4 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">{fileSizeError}</span>
+            </div>
+          )}
+          {mediaConflictError && (
+            <div className="mb-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 flex items-center gap-2">
+              <XIcon className="size-4 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">{mediaConflictError}</span>
             </div>
           )}
           <div className="mb-3">

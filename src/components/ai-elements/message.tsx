@@ -17,6 +17,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PaperclipIcon,
+  PlayIcon,
   XIcon,
 } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
@@ -401,6 +402,77 @@ export function MessageAttachment({
             </Button>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// Helper function to extract YouTube video ID
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+export type MessageVideoProps = HTMLAttributes<HTMLDivElement> & {
+  url: string;
+  className?: string;
+};
+
+export function MessageVideo({
+  url,
+  className,
+  ...props
+}: MessageVideoProps) {
+  const youtubeId = extractYouTubeId(url);
+  const isYouTube = youtubeId !== null;
+  const thumbnailUrl = isYouTube
+    ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`
+    : undefined;
+
+  const handleClick = () => {
+    window.open(url, '_blank');
+  };
+
+  return (
+    <div
+      className={cn(
+        "group relative size-24 overflow-hidden rounded-lg cursor-pointer",
+        className
+      )}
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleClick();
+        }
+      }}
+      {...props}
+    >
+      {thumbnailUrl ? (
+        <>
+          <img
+            alt="video thumbnail"
+            className="size-full object-cover"
+            height={100}
+            src={thumbnailUrl}
+            width={100}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+            <PlayIcon className="size-6 text-white" fill="white" />
+          </div>
+        </>
+      ) : (
+        <div className="flex size-full shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <PlayIcon className="size-4" />
+        </div>
       )}
     </div>
   );
