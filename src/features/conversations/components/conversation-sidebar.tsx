@@ -6,7 +6,9 @@ import {
   HistoryIcon, 
   LoaderIcon, 
   PlusIcon,
-  VideoIcon
+  VideoIcon,
+  CheckIcon,
+  XIcon
 } from "lucide-react";
 
 import {
@@ -37,6 +39,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { useUploadThing } from "@/lib/uploadthing";
+import { isValidYouTubeUrl, extractYouTubeVideoId } from "@/lib/video-validation";
 
 import {
   useConversation,
@@ -86,6 +89,8 @@ export const ConversationSidebar = ({
   projectId,
 }: ConversationSidebarProps) => {
   const [input, setInput] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeError, setYoutubeError] = useState("");
   const [
     selectedConversationId,
     setSelectedConversationId,
@@ -172,6 +177,11 @@ export const ConversationSidebar = ({
       videoUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
     }
 
+    // Handle YouTube URL
+    if (youtubeUrl && isValidYouTubeUrl(youtubeUrl)) {
+      videoUrls.push(youtubeUrl);
+    }
+
     // Trigger Inngest function via API
     try {
       await ky.post("/api/messages", {
@@ -186,6 +196,8 @@ export const ConversationSidebar = ({
     }
 
     setInput("");
+    setYoutubeUrl("");
+    setYoutubeError("");
   }
 
   return (
@@ -272,6 +284,60 @@ export const ConversationSidebar = ({
           <ConversationScrollButton />
         </Conversation>
         <div className="p-3">
+          {/* YouTube URL Input */}
+          {youtubeUrl && isValidYouTubeUrl(youtubeUrl) && (
+            <div className="mb-3 rounded-lg border border-border bg-muted/50 p-3">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <CheckIcon className="size-4 text-green-500 flex-shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {youtubeUrl}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setYoutubeUrl("");
+                    setYoutubeError("");
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                  title="Remove YouTube URL"
+                >
+                  <XIcon className="size-4" />
+                </button>
+              </div>
+              {extractYouTubeVideoId(youtubeUrl) && (
+                <img
+                  src={`https://img.youtube.com/vi/${extractYouTubeVideoId(youtubeUrl)}/maxresdefault.jpg`}
+                  alt="YouTube thumbnail"
+                  className="w-full h-auto rounded max-h-32 object-cover"
+                />
+              )}
+            </div>
+          )}
+          {youtubeError && (
+            <div className="mb-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3 flex items-center gap-2">
+              <XIcon className="size-4 text-destructive flex-shrink-0" />
+              <span className="text-xs text-destructive">{youtubeError}</span>
+            </div>
+          )}
+          <div className="mb-3">
+            <input
+              type="text"
+              placeholder="Paste YouTube URL..."
+              value={youtubeUrl}
+              onChange={(e) => {
+                const url = e.target.value;
+                setYoutubeUrl(url);
+                if (url && !isValidYouTubeUrl(url)) {
+                  setYoutubeError("Invalid YouTube URL");
+                } else {
+                  setYoutubeError("");
+                }
+              }}
+              disabled={isProcessing}
+              className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
           <PromptInput 
             accept="video/*"
             onSubmit={handleSubmit}
