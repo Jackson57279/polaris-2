@@ -77,6 +77,7 @@ export default defineSchema({
         v.literal("cancelled")
       )
     ),
+    videoUrls: v.optional(v.array(v.string())),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_project_status", ["projectId", "status"]),

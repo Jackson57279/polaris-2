@@ -27,6 +27,7 @@ interface MessageEvent {
   projectId: Id<"projects">;
   message: string;
   imageUrls?: string[];
+  videoUrls?: string[];
 };
 
 export const processMessage = inngest.createFunction(
@@ -65,6 +66,7 @@ export const processMessage = inngest.createFunction(
       projectId,
       message,
       imageUrls,
+      videoUrls,
     } = event.data as MessageEvent;
 
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY; 
@@ -90,8 +92,14 @@ export const processMessage = inngest.createFunction(
       throw new NonRetriableError("Conversation not found");
     }
 
-    const codingModel =
+    let codingModel =
       process.env.POLARIS_CODING_MODEL ?? "google/gemini-3.1-pro-preview";
+
+    // Switch to Gemini Flash for video processing (multimodal-capable)
+    if (videoUrls && videoUrls.length > 0) {
+      codingModel = "google/gemini-3.0-flash";
+      console.log(`[process-message] Switching model to ${codingModel} for video processing (${videoUrls.length} video(s))`);
+    }
 
     // Fetch recent messages for conversation context
     const recentMessages = await step.run("get-recent-messages", async () => {
@@ -212,6 +220,9 @@ export const processMessage = inngest.createFunction(
     let fullMessage = message;
     if (imageUrls && imageUrls.length > 0) {
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
+    }
+    if (videoUrls && videoUrls.length > 0) {
+      fullMessage += `\n\nReference videos provided by the user:\n${videoUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
     }
 
     const result = await network.run(fullMessage);
