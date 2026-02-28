@@ -5,7 +5,8 @@ import {
   CopyIcon, 
   HistoryIcon, 
   LoaderIcon, 
-  PlusIcon
+  PlusIcon,
+  VideoIcon
 } from "lucide-react";
 
 import {
@@ -22,14 +23,20 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
+  PromptInputAttachment,
+  PromptInputAttachments,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
   type PromptInputMessage,
+  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
+import { useUploadThing } from "@/lib/uploadthing";
 
 import {
   useConversation,
@@ -41,6 +48,35 @@ import {
 import { Id } from "../../../../convex/_generated/dataModel";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
+
+function dataUrlToFile(dataUrl: string, filename: string, mimeType: string): File {
+  const [header, data] = dataUrl.split(",");
+  const isBase64 = header?.includes("base64") ?? false;
+
+  if (isBase64 && data) {
+    const binaryStr = atob(data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new File([bytes], filename, { type: mimeType });
+  }
+
+  const decoded = data ? decodeURIComponent(data) : "";
+  return new File([decoded], filename, { type: mimeType });
+}
+
+function AttachVideoButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      onClick={() => attachments.openFileDialog()}
+      title="Attach video"
+    >
+      <VideoIcon className="size-4" />
+    </PromptInputButton>
+  );
+}
 
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
@@ -60,6 +96,7 @@ export const ConversationSidebar = ({
   ] = useState(false);
 
   const createConversation = useCreateConversation();
+  const { startUpload, isUploading } = useUploadThing("videoUploader");
   const conversations = useConversations(projectId);
 
   const activeConversationId =
@@ -118,12 +155,30 @@ export const ConversationSidebar = ({
       }
     }
 
+    // Handle video uploads
+    let videoUrls: string[] = [];
+    const videoFiles = message.files
+      .filter((f) => f.mediaType?.startsWith("video/") && f.url)
+      .map((f, i) =>
+        dataUrlToFile(
+          f.url,
+          f.filename ?? `video-${i}.mp4`,
+          f.mediaType ?? "video/mp4"
+        )
+      );
+
+    if (videoFiles.length > 0) {
+      const uploaded = await startUpload(videoFiles);
+      videoUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
+    }
+
     // Trigger Inngest function via API
     try {
       await ky.post("/api/messages", {
         json: {
           conversationId,
           message: message.text,
+          videoUrls,
         },
       });
     } catch {
@@ -218,9 +273,15 @@ export const ConversationSidebar = ({
         </Conversation>
         <div className="p-3">
           <PromptInput 
+            accept="video/*"
             onSubmit={handleSubmit}
             className="mt-2"
           >
+            <PromptInputHeader>
+              <PromptInputAttachments>
+                {(file) => <PromptInputAttachment key={file.id} data={file} />}
+              </PromptInputAttachments>
+            </PromptInputHeader>
             <PromptInputBody>
               <PromptInputTextarea
                 placeholder="Ask Polaris anything..."
@@ -230,7 +291,9 @@ export const ConversationSidebar = ({
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <PromptInputTools />
+              <PromptInputTools>
+                <AttachVideoButton />
+              </PromptInputTools>
               <PromptInputSubmit
                 disabled={isProcessing ? false : !input}
                 status={isProcessing ? "streaming" : undefined}
