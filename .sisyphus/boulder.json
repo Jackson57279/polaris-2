@@ -1,11 +1,9 @@
 {
-  "active_plan": "/home/dih/polaris-cwa/polaris/.sisyphus/plans/auto-folder-creation.md",
-  "started_at": "2026-02-16T01:39:21.170Z",
-  "completed_at": "2026-02-16T01:42:00.000Z",
+  "active_plan": "/home/dih/polaris-2/.sisyphus/plans/video-input-fix.md",
+  "started_at": "2026-02-28T11:17:12.968Z",
   "session_ids": [
-    "ses_39be88406ffe1QGlWI2o9uPQ0Q"
+    "ses_35c3a7ab6ffeWuBv6Y941c5QY2"
   ],
-  "plan_name": "auto-folder-creation",
-  "agent": "atlas",
-  "status": "completed"
+  "plan_name": "video-input-fix",
+  "agent": "atlas"
 }
