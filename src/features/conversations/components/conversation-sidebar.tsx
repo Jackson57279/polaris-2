@@ -193,7 +193,7 @@ export const ConversationSidebar = ({
                       Request cancelled
                     </span>
                   ) : (
-                    <MessageResponse>{message.content}</MessageResponse>
+                    <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
                   )}
                 </MessageContent>
                 {message.role === "assistant" &&
