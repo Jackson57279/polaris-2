@@ -228,11 +228,7 @@ export const ConversationSidebar = ({
                 value={input}
                 disabled={isProcessing}
               />
-                placeholder="Ask LuminaWeb anything..."
-                onChange={(e) => setInput(e.target.value)}
-                value={input}
-                disabled={isProcessing}
-              />
+
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools />
