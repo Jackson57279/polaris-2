@@ -34,8 +34,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: baseUrl ? new URL(baseUrl) : undefined,
   title: {
-    default: "Polaris – Cloud IDE with AI",
-    template: "%s | Polaris",
+    default: "LuminaWeb – Cloud IDE with AI",
+    template: "%s | LuminaWeb",
   },
   description:
     "Browser-based IDE with AI suggestions, quick edit (Cmd+K), in-editor chat, and GitHub integration. Build and run code in the cloud.",
@@ -47,19 +47,19 @@ export const metadata: Metadata = {
     "browser IDE",
     "collaborative coding",
   ],
-  authors: [{ name: "Polaris" }],
-  creator: "Polaris",
+  authors: [{ name: "LuminaWeb" }],
+  creator: "LuminaWeb",
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "Polaris",
-    title: "Polaris – Cloud IDE with AI",
+    siteName: "LuminaWeb",
+    title: "LuminaWeb – Cloud IDE with AI",
     description:
       "Browser-based IDE with AI suggestions, quick edit, and GitHub integration.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Polaris – Cloud IDE with AI",
+    title: "LuminaWeb – Cloud IDE with AI",
     description:
       "Browser-based IDE with AI suggestions, quick edit, and GitHub integration.",
   },

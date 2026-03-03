@@ -4,10 +4,10 @@ import { PricingTable } from "@clerk/nextjs";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "View plans and manage your Polaris subscription. Upgrade for more AI usage and features.",
+    "View plans and manage your LuminaWeb subscription. Upgrade for more AI usage and features.",
   openGraph: {
-    title: "Pricing | Polaris",
-    description: "Plans and subscription management for Polaris Cloud IDE.",
+    title: "Pricing | LuminaWeb",
+    description: "Plans and subscription management for LuminaWeb Cloud IDE.",
   },
   robots: { index: true, follow: true },
 };
