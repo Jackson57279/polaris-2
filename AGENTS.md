@@ -135,3 +135,16 @@ Convex: **`npx convex dev`** (development). Inngest: **`npx inngest-cli@latest d
 | GitHub import/export | `src/app/api/github/import/route.ts`, `.../export/route.ts`; `src/features/projects/inngest/import-github-repo.ts`, `export-to-github.ts` |
 
 Use this file as the single source of context for structure, conventions, and where to add or modify code.
+
+---
+
+## Sub-Documentation
+
+| Directory | See |
+|-----------|-----|
+| `convex/` | `convex/AGENTS.md` – Backend patterns, schema, indexes |
+| `src/features/conversations/` | `src/features/conversations/AGENTS.md` – Inngest, AI tools |
+| `src/features/editor/` | `src/features/editor/AGENTS.md` – CodeMirror, extensions |
+| `src/features/projects/` | `src/features/projects/AGENTS.md` – File explorer, deploy |
+| `src/components/ai-elements/` | `src/components/ai-elements/AGENTS.md` – AI UI components |
+

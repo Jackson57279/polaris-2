@@ -1,0 +1,4 @@
+- Decision: Centralize tool bundles for Inngest tools
+  - Introduced four bundles: ReadOnly, Planning, Debugging, Full
+  - Used a compatibility shim for ToolOptions due to missing types.ts in this environment
+  - Build verified in this environment with a dummy API key; plan to swap shim for real type when available

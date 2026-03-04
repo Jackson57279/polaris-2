@@ -9,17 +9,20 @@ import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
 import {
   CODING_AGENT_SYSTEM_PROMPT,
-  TITLE_GENERATOR_SYSTEM_PROMPT,
+  TITLE_GENERATOR_SYSTEM_PROMPT
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
-import { createReadFilesTool } from "./tools/read-files";
-import { createListFilesTool } from "./tools/list-files";
-import { createUpdateFileTool } from "./tools/update-file";
-import { createCreateFilesTool } from "./tools/create-files";
-import { createCreateFolderTool } from "./tools/create-folder";
-import { createRenameFileTool } from "./tools/rename-file";
-import { createDeleteFilesTool } from "./tools/delete-files";
-import { createScrapeUrlsTool } from "./tools/scrape-urls";
+import { SkillRegistry, isSkillSystemEnabled } from '../skills';
+import { fileManagementSkill, webResearchSkill } from '../skills';
+import {
+  createClassifierAgent,
+  createPlannerAgent,
+  createBuilderAgent,
+  createDebuggerAgent,
+  createResearcherAgent,
+  createGeneralAgent,
+} from './agents';
+import { PolarisNetworkState } from './types';
 
 interface MessageEvent {
   messageId: Id<"messages">;
@@ -158,39 +161,50 @@ export const processMessage = inngest.createFunction(
         });
       }
     }
+    // Create all agents for multi-agent network
+    const classifierAgent = createClassifierAgent({ internalKey, projectId });
+    const plannerAgent = createPlannerAgent({ internalKey, projectId });
+    const builderAgent = createBuilderAgent({ internalKey, projectId });
+    const debuggerAgent = createDebuggerAgent({ internalKey, projectId });
+    const researcherAgent = createResearcherAgent({ internalKey, projectId });
+    const generalAgent = createGeneralAgent({ internalKey, projectId });
 
-    // Create the coding agent with file tools
-    const codingAgent = createAgent({
-      name: "polaris-coding-agent",
-      description: "An expert AI coding assistant",
-      system: systemPrompt,
-      model: openai({
-        model: codingModel,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseUrl: "https://openrouter.ai/api/v1",
-        defaultParameters: {
-          temperature: 0.3,
-          max_completion_tokens: 8000,
-        },
-      }),
-      tools: [
-        createListFilesTool({ internalKey, projectId }),
-        createReadFilesTool({ internalKey }),
-        createUpdateFileTool({ internalKey }),
-        createCreateFilesTool({ projectId, internalKey }),
-        createCreateFolderTool({ projectId, internalKey }),
-        createRenameFileTool({ internalKey }),
-        createDeleteFilesTool({ internalKey }),
-        createScrapeUrlsTool(),
-      ],
-    });
+    // Create multi-agent network with intent-based routing
+    const network = createNetwork<PolarisNetworkState>({
+      name: "polaris-multi-agent-network",
+      agents: [classifierAgent, plannerAgent, builderAgent, debuggerAgent, researcherAgent, generalAgent],
+      maxIter: 20,
+      router: ({ network, callCount }) => {
+        const MAX_SWITCHES = 5;
+        const switchCount = network.state.data.agentSwitchCount || 0;
 
-    // Create network with single agent
-    const network = createNetwork({
-      name: "polaris-coding-network",
-      agents: [codingAgent],
-      maxIter: 10,
-      router: ({ network }) => {
+        // Guardrail: prevent infinite loops
+        if (switchCount >= MAX_SWITCHES) {
+          return undefined;
+        }
+
+        // Phase 1: Classify intent on first call
+        if (callCount === 0) {
+          return classifierAgent;
+        }
+
+        // Phase 2: Route to specialist based on intent
+        if (!network.state.data.routed && network.state.data.intent) {
+          network.state.data.routed = true;
+          network.state.data.agentSwitchCount = switchCount + 1;
+
+          const intent = network.state.data.intent;
+          const agentMap: Record<string, typeof classifierAgent> = {
+            planner: plannerAgent,
+            builder: builderAgent,
+            debugger: debuggerAgent,
+            researcher: researcherAgent,
+            general: generalAgent,
+          };
+          return agentMap[intent] || generalAgent;
+        }
+
+        // Phase 3: Check for completion (existing logic)
         const lastResult = network.state.results.at(-1);
         const hasTextResponse = lastResult?.output.some(
           (m) => m.type === "text" && m.role === "assistant"
@@ -204,8 +218,10 @@ export const processMessage = inngest.createFunction(
         if (hasTextResponse && !hasToolCalls) {
           return undefined;
         }
-        return codingAgent;
-      }
+
+        // Continue with current agent (return undefined to continue)
+        return undefined;
+      },
     });
 
     // Build the full message content including any reference images

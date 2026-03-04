@@ -1,0 +1,56 @@
+$ next build
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /home/dih/bun.lock as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /home/dih/polaris-cwa/polaris/package-lock.json
+
+▲ Next.js 16.1.1 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 14.2s
+  Running next.config.js provided runAfterProductionCompile ...
+✓ Completed runAfterProductionCompile in 343ms
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/22) ...
+  Generating static pages using 15 workers (5/22) 
+  Generating static pages using 15 workers (10/22) 
+  Generating static pages using 15 workers (16/22) 
+✓ Generating static pages using 15 workers (22/22) in 517.1ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/deploy/netlify
+├ ƒ /api/deploy/vercel
+├ ƒ /api/figma/import
+├ ƒ /api/github/export
+├ ƒ /api/github/export/cancel
+├ ƒ /api/github/export/reset
+├ ƒ /api/github/import
+├ ƒ /api/inngest
+├ ƒ /api/messages
+├ ƒ /api/messages/cancel
+├ ƒ /api/projects/create-with-prompt
+├ ƒ /api/quick-edit
+├ ƒ /api/suggestion
+├ ƒ /api/uploadthing
+├ ƒ /api/wallet/ledger
+├ ƒ /customer-portal/[[...customerPortal]]
+├ ○ /pricing
+├ ƒ /projects/[projectId]
+├ ○ /robots.txt
+└ ○ /sitemap.xml
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -1,0 +1,1 @@
+Command: tsc --noEmit\nResult: exit code 0 (no errors)

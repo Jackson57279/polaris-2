@@ -78,6 +78,7 @@
     "inngest": "^3.49.3",
     "input-otp": "^1.4.2",
     "isbinaryfile": "^5.0.7",
+    "js-yaml": "^4.1.1",
     "ky": "^1.14.2",
     "lucide-react": "^0.562.0",
     "motion": "^12.23.26",
@@ -108,6 +109,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bun": "^1.3.9",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

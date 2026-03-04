@@ -69,6 +69,7 @@ export const createMessage = mutation({
         v.literal("cancelled")
       )
     ),
+    agentType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -79,6 +80,7 @@ export const createMessage = mutation({
       role: args.role,
       content: args.content,
       status: args.status,
+      agentType: args.agentType,
     });
 
     // Update conversation's updatedAt
@@ -95,6 +97,7 @@ export const updateMessageContent = mutation({
     internalKey: v.string(),
     messageId: v.id("messages"),
     content: v.string(),
+    agentType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -102,6 +105,7 @@ export const updateMessageContent = mutation({
     await ctx.db.patch(args.messageId, {
       content: args.content,
       status: "completed" as const,
+      agentType: args.agentType,
     });
   },
 });
