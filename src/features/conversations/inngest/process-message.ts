@@ -1,4 +1,6 @@
-import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
+import { createAgent, openai, createNetwork } from "@inngest/agent-kit";
+import { generateText } from "ai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -124,36 +126,28 @@ export const processMessage = inngest.createFunction(
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     if (shouldGenerateTitle) {
-       const titleAgent = createAgent({
-        name: "title-generator",
-        system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: openai({
-          model: "x-ai/grok-4.1-fast",
-          apiKey: process.env.OPENROUTER_API_KEY,
-          baseUrl: "https://openrouter.ai/api/v1",
-          defaultParameters: { temperature: 0, max_completion_tokens: 50 },
-        }),
-       });
+      const openrouter = createOpenAICompatible({
+        name: "openrouter",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: "https://openrouter.ai/api/v1",
+      });
 
       const generatedTitle = await step.run(
         "generate-conversation-title",
         async () => {
-          const { output } = await titleAgent.run(message);
+          const result = await generateText({
+            model: openrouter("x-ai/grok-4.1-fast"),
+            // Keep title prompt short and deterministic
+            prompt: `${TITLE_GENERATOR_SYSTEM_PROMPT}\n\nUser message:\n${message}`,
+            experimental_telemetry: {
+              isEnabled: true,
+              recordInputs: true,
+              recordOutputs: true,
+            },
+          });
 
-          const textMessage = output.find(
-            (m) => m.type === "text" && m.role === "assistant"
-          );
-
-          if (textMessage?.type !== "text") {
-            return null;
-          }
-
-          return typeof textMessage.content === "string"
-            ? textMessage.content.trim()
-            : textMessage.content
-                .map((c) => c.text)
-                .join("")
-                .trim();
+          const text = result.text.trim();
+          return text.length > 0 ? text : null;
         }
       );
 
@@ -236,24 +230,18 @@ export const processMessage = inngest.createFunction(
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
     }
 
-    const assistantResponse = await step.run(
-      "run-coding-network",
-      async () => {
-        const result = await network.run(fullMessage);
-        const lastResult = result.state.results.at(-1);
-        const textMessage = lastResult?.output.find(
-          (m) => m.type === "text" && m.role === "assistant"
-        );
-
-        if (textMessage?.type !== "text") {
-          return "I processed your request. Let me know if you need anything else!";
-        }
-
-        return typeof textMessage.content === "string"
-          ? textMessage.content
-          : textMessage.content.map((c) => c.text).join("");
-      }
+    const result = await network.run(fullMessage);
+    const lastResult = result.state.results.at(-1);
+    const textMessage = lastResult?.output.find(
+      (m) => m.type === "text" && m.role === "assistant"
     );
+
+    const assistantResponse =
+      textMessage?.type === "text"
+        ? (typeof textMessage.content === "string"
+            ? textMessage.content
+            : textMessage.content.map((c) => c.text).join(""))
+        : "I processed your request. Let me know if you need anything else!";
 
     // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {

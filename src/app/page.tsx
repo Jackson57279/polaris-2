@@ -6,11 +6,11 @@ const baseUrl =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
 
 export const metadata: Metadata = {
-  title: "Polaris",
+  title: "LuminaWeb",
   description:
     "Cloud IDE with AI suggestions, quick edit (Cmd+K), and GitHub integration. Create and open projects in your browser.",
   openGraph: {
-    title: "Polaris – Cloud IDE with AI",
+    title: "LuminaWeb – Cloud IDE with AI",
     description:
       "Cloud IDE with AI suggestions, quick edit (Cmd+K), and GitHub integration.",
   },

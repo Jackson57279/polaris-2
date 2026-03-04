@@ -193,7 +193,7 @@ export const ConversationSidebar = ({
                       Request cancelled
                     </span>
                   ) : (
-                    <MessageResponse>{message.content}</MessageResponse>
+                    <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
                   )}
                 </MessageContent>
                 {message.role === "assistant" &&
@@ -223,11 +223,12 @@ export const ConversationSidebar = ({
           >
             <PromptInputBody>
               <PromptInputTextarea
-                placeholder="Ask Polaris anything..."
+                placeholder="Ask LuminaWeb anything..."
                 onChange={(e) => setInput(e.target.value)}
                 value={input}
                 disabled={isProcessing}
               />
+
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools />

@@ -143,7 +143,7 @@ export const NewProjectDialog = ({
           </PromptInputHeader>
           <PromptInputBody>
             <PromptInputTextarea
-              placeholder="Ask Polaris to build..."
+              placeholder="Ask LuminaWeb to build..."
               onChange={(e) => setInput(e.target.value)}
               value={input}
               disabled={isLoading}

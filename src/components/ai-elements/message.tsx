@@ -196,7 +196,10 @@ export const MessageBranchContent = ({
 
   // Use useEffect to update branches when they change
   useEffect(() => {
-    if (branches.length !== childrenArray.length) {
+    // Compare using stable keys to avoid infinite loops from new array references
+    const currentKeys = childrenArray.map(c => c.key).join(',');
+    const prevKeys = branches.map(b => b.key).join(',');
+    if (currentKeys !== prevKeys) {
       setBranches(childrenArray);
     }
   }, [childrenArray, branches, setBranches]);
@@ -320,8 +323,7 @@ export const MessageResponse = memo(
       )}
       {...props}
     />
-  ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children
+  )
 );
 
 MessageResponse.displayName = "MessageResponse";
