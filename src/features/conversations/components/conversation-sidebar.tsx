@@ -1,10 +1,11 @@
 import ky from "ky";
 import { toast } from "sonner";
 import { useState } from "react";
-import { 
-  CopyIcon, 
-  HistoryIcon, 
-  LoaderIcon, 
+import {
+  CopyIcon,
+  HistoryIcon,
+  ImageIcon,
+  LoaderIcon,
   PlusIcon
 } from "lucide-react";
 
@@ -22,12 +23,17 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
+  PromptInputAttachment,
+  PromptInputAttachments,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
   type PromptInputMessage,
+  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 
@@ -41,10 +47,40 @@ import {
 import { Id } from "../../../../convex/_generated/dataModel";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
+import { useUploadThing } from "@/lib/uploadthing";
 
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
 };
+
+function dataUrlToFile(dataUrl: string, filename: string, mimeType: string): File {
+  const [header, data] = dataUrl.split(",");
+  const isBase64 = header?.includes("base64") ?? false;
+
+  if (isBase64 && data) {
+    const binaryStr = atob(data);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return new File([bytes], filename, { type: mimeType });
+  }
+
+  const decoded = data ? decodeURIComponent(data) : "";
+  return new File([decoded], filename, { type: mimeType });
+}
+
+function AttachImageButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      onClick={() => attachments.openFileDialog()}
+      title="Attach image"
+    >
+      <ImageIcon className="size-4" />
+    </PromptInputButton>
+  );
+}
 
 export const ConversationSidebar = ({
   projectId,
@@ -58,6 +94,8 @@ export const ConversationSidebar = ({
     pastConversationsOpen,
     setPastConversationsOpen
   ] = useState(false);
+
+  const { startUpload, isUploading } = useUploadThing("imageUploader");
 
   const createConversation = useCreateConversation();
   const conversations = useConversations(projectId);
@@ -76,6 +114,8 @@ export const ConversationSidebar = ({
   const isProcessing = conversationMessages.some(
     (msg) => msg.status === "processing"
   );
+
+  const isLoading = isProcessing || isUploading;
 
   const handleCancel = async () => {
     try {
@@ -118,12 +158,35 @@ export const ConversationSidebar = ({
       }
     }
 
+    // Upload any attached images via UploadThing
+    let imageUrls: string[] = [];
+    const imageFiles = message.files
+      .filter((f) => f.mediaType?.startsWith("image/") && f.url)
+      .map((f, i) =>
+        dataUrlToFile(
+          f.url,
+          f.filename ?? `image-${i}.png`,
+          f.mediaType ?? "image/png"
+        )
+      );
+
+    if (imageFiles.length > 0) {
+      try {
+        const uploaded = await startUpload(imageFiles);
+        imageUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
+      } catch {
+        toast.error("Failed to upload image(s)");
+        return;
+      }
+    }
+
     // Trigger Inngest function via API
     try {
       await ky.post("/api/messages", {
         json: {
           conversationId,
           message: message.text,
+          imageUrls,
         },
       });
     } catch {
@@ -167,9 +230,9 @@ export const ConversationSidebar = ({
           <ConversationContent>
             {messagesStatus === "CanLoadMore" && (
               <div className="flex justify-center p-4">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => loadMoreMessages(50)}
                 >
                   Load More
@@ -217,23 +280,32 @@ export const ConversationSidebar = ({
           <ConversationScrollButton />
         </Conversation>
         <div className="p-3">
-          <PromptInput 
+          <PromptInput
+            accept="image/*"
+            multiple
             onSubmit={handleSubmit}
             className="mt-2"
           >
+            <PromptInputHeader>
+              <PromptInputAttachments>
+                {(file) => <PromptInputAttachment key={file.id} data={file} />}
+              </PromptInputAttachments>
+            </PromptInputHeader>
             <PromptInputBody>
               <PromptInputTextarea
                 placeholder="Ask LuminaWeb anything..."
                 onChange={(e) => setInput(e.target.value)}
                 value={input}
-                disabled={isProcessing}
+                disabled={isLoading}
               />
 
             </PromptInputBody>
             <PromptInputFooter>
-              <PromptInputTools />
+              <PromptInputTools>
+                <AttachImageButton />
+              </PromptInputTools>
               <PromptInputSubmit
-                disabled={isProcessing ? false : !input}
+                disabled={isLoading ? false : !input}
                 status={isProcessing ? "streaming" : undefined}
               />
             </PromptInputFooter>
