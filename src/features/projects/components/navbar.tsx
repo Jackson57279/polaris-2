@@ -141,7 +141,7 @@ export const Navbar = ({
               Saved{" "}
               {project?.updatedAt 
                 ? formatDistanceToNow(
-                  project.updatedAt,
+                  new Date(project.updatedAt),
                   { addSuffix: true, }
                 )
                 : "Loading..."}

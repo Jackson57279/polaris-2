@@ -55,7 +55,7 @@ export const PastConversationsDialog = ({
               <div className="flex flex-col gap-0.5">
                 <span>{conversation.title}</span>
                 <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(conversation._creationTime, {
+                  {formatDistanceToNow(new Date(conversation._creationTime), {
                     addSuffix: true,
                   })}
                 </span>

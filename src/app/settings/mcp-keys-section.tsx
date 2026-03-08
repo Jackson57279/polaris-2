@@ -316,7 +316,7 @@ export const McpKeysSection = () => {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Created{" "}
-                  {formatDistanceToNow(key._creationTime, {
+                  {formatDistanceToNow(new Date(key._creationTime), {
                     addSuffix: true,
                   })}
                 </span>
