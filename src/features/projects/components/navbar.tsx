@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { CloudCheckIcon, LoaderIcon } from "lucide-react";
+import { CloudCheckIcon, LoaderIcon, SettingsIcon } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { Poppins } from "next/font/google";
 import { formatDistanceToNow } from "date-fns";
@@ -152,6 +152,11 @@ export const Navbar = ({
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" asChild>
           <Link href="/pricing">Pricing</Link>
+        </Button>
+        <Button variant="ghost" size="icon" className="size-8" asChild>
+          <Link href="/settings">
+            <SettingsIcon className="size-4" />
+          </Link>
         </Button>
         <UserButton
           userProfileProps={{
