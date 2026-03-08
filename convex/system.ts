@@ -637,6 +637,86 @@ export const createProject = mutation({
   },
 });
 
+export const getProjectsByOwner = query({
+  args: {
+    internalKey: v.string(),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_owner", (q) => q.eq("ownerId", args.clerkUserId))
+      .order("desc")
+      .collect();
+  },
+});
+
+export const validateApiKey = query({
+  args: {
+    internalKey: v.string(),
+    keyHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const key = await ctx.db
+      .query("api_keys")
+      .withIndex("by_key_hash", (q) => q.eq("keyHash", args.keyHash))
+      .first();
+    return key ? { clerkUserId: key.clerkUserId, keyId: key._id } : null;
+  },
+});
+
+export const createApiKey = mutation({
+  args: {
+    internalKey: v.string(),
+    clerkUserId: v.string(),
+    name: v.string(),
+    keyHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const id = await ctx.db.insert("api_keys", {
+      keyHash: args.keyHash,
+      clerkUserId: args.clerkUserId,
+      name: args.name,
+      createdAt: Date.now(),
+    });
+    return id;
+  },
+});
+
+export const listApiKeys = query({
+  args: {
+    internalKey: v.string(),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const keys = await ctx.db
+      .query("api_keys")
+      .withIndex("by_user", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .collect();
+    return keys.map((k) => ({ id: k._id, name: k.name, createdAt: k.createdAt }));
+  },
+});
+
+export const revokeApiKey = mutation({
+  args: {
+    internalKey: v.string(),
+    keyId: v.id("api_keys"),
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const key = await ctx.db.get(args.keyId);
+    if (!key) throw new Error("API key not found");
+    if (key.clerkUserId !== args.clerkUserId) throw new Error("Unauthorized");
+    await ctx.db.delete(args.keyId);
+    return args.keyId;
+  },
+});
+
 export const createProjectWithConversation = mutation({
   args: {
     internalKey: v.string(),

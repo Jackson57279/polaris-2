@@ -149,5 +149,14 @@ export default defineSchema({
     type: v.string(),
     payloadJson: v.string(),
     createdAt: v.number(),
-  }).index("by_type", ["type"])
+  }).index("by_type", ["type"]),
+
+  api_keys: defineTable({
+    keyHash: v.string(),
+    clerkUserId: v.string(),
+    name: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_key_hash", ["keyHash"])
+    .index("by_user", ["clerkUserId"]),
 });
