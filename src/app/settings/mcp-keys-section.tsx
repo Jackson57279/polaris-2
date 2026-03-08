@@ -160,7 +160,7 @@ export const McpKeysSection = () => {
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           Connect Claude Desktop, Cursor, or any MCP-compatible client to your
-          LuminaWeb projects. Requires a Pro plan.
+          LuminaWeb projects.
         </p>
       </div>
 

@@ -204,21 +204,6 @@ async function authenticate(
     return errorResponse("Unauthorized", 401);
   }
 
-  let hasPro = false;
-  try {
-    hasPro = await convex.query(api.system.hasActiveSubscription, {
-      internalKey,
-      clerkUserId: keyData.clerkUserId,
-    });
-  } catch {
-    return errorResponse("Service unavailable", 503);
-  }
-
-  if (!hasPro) {
-    // Don't increment auth fail counter — key is valid, user just lacks Pro
-    return errorResponse("Pro subscription required to use the MCP API", 403);
-  }
-
   return { clerkUserId: keyData.clerkUserId, internalKey };
 }
 

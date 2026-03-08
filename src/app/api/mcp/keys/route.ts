@@ -139,18 +139,11 @@ export async function GET() {
   }
 }
 
-/** POST /api/mcp/keys — create a new API key (Pro users only) */
+/** POST /api/mcp/keys — create a new API key */
 export async function POST(request: Request) {
-  const { userId, has } = await auth();
+  const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!has({ plan: "pro" })) {
-    return NextResponse.json(
-      { error: "Pro plan required to create MCP API keys" },
-      { status: 403 }
-    );
   }
 
   // Rate limit key creation per user
