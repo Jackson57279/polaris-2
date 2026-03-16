@@ -20,6 +20,8 @@ const requestSchema = z.object({
   imageUrls: z.array(z.string().url()).optional().default([]),
 });
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const { userId } = await auth();
 

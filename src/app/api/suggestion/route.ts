@@ -49,6 +49,8 @@ Follow these steps IN ORDER:
 Your suggestion is inserted immediately after the cursor, so never suggest code that's already in the file.
 </instructions>`;
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();

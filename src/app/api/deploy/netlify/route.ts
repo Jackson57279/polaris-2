@@ -23,6 +23,8 @@ async function readNetlifyError(res: Response): Promise<string> {
   }
 }
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const { userId, has } = await auth();
 

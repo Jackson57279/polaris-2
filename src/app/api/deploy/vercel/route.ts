@@ -66,6 +66,8 @@ const FRAMEWORKS_NEEDING_SOURCE = new Set([
   "nextjs", "react", "vite", "remix", "nuxt", "sveltekit", "astro", "vue", "angular",
 ]);
 
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const { userId, has } = await auth();
 

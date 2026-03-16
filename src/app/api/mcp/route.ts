@@ -597,6 +597,8 @@ async function handleMcp(req: Request): Promise<Response> {
   }
 }
 
+export const maxDuration = 60;
+
 export const GET = handleMcp;
 export const POST = handleMcp;
 export const DELETE = handleMcp;

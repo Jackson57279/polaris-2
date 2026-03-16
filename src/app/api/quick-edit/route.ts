@@ -46,6 +46,8 @@ Do not include any explanations or comments unless requested.
 If the instruction is unclear or cannot be applied, return the original code unchanged.
 </instructions>`;
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();

@@ -20,6 +20,8 @@ function parseGitHubUrl(url: string) {
   return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const { userId, has } = await auth();
 

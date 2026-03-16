@@ -13,6 +13,8 @@ const requestSchema = z.object({
   description: z.string().max(350).optional(),
 });
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const { userId, has } = await auth();
 
