@@ -33,3 +33,60 @@ Do NOT include intermediate thinking or narration. Only provide the final summar
 
 export const TITLE_GENERATOR_SYSTEM_PROMPT =
   "Generate a short, descriptive title (3-6 words) for a conversation based on the user's message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.";
+
+// Keywords that indicate the user wants UI/frontend generation
+const UI_KEYWORDS = [
+  "landing page", "website", "homepage", "hero section", "navbar", "navigation",
+  "dashboard", "ui", "ux", "design", "layout", "frontend", "front-end",
+  "component", "button", "card", "modal", "sidebar", "header", "footer",
+  "form", "signup", "sign-up", "login", "pricing", "portfolio", "blog",
+  "saas", "app", "application", "responsive", "mobile", "tailwind",
+  "styled", "css", "animation", "dark mode", "theme", "figma",
+  "beautiful", "modern", "sleek", "premium", "minimalist", "clean",
+  "web app", "web page", "webpage", "site", "interface", "prototype",
+];
+
+/**
+ * Checks whether a user message is likely requesting UI/frontend generation.
+ */
+export function isUIGenerationRequest(message: string): boolean {
+  const lower = message.toLowerCase();
+  return UI_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+const DESIGN_SKILL_URL =
+  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/soft-skill/SKILL.md";
+
+let cachedDesignSkill: { content: string; fetchedAt: number } | null = null;
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+/**
+ * Fetches the premium design skill from GitHub (with in-memory caching).
+ * Returns the markdown content stripped of frontmatter, or null on failure.
+ */
+export async function fetchDesignGuidelines(): Promise<string | null> {
+  if (cachedDesignSkill && Date.now() - cachedDesignSkill.fetchedAt < CACHE_TTL_MS) {
+    return cachedDesignSkill.content;
+  }
+
+  try {
+    const res = await fetch(DESIGN_SKILL_URL, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return cachedDesignSkill?.content ?? null;
+
+    let content = await res.text();
+
+    // Strip YAML frontmatter if present
+    if (content.startsWith("---")) {
+      const end = content.indexOf("---", 3);
+      if (end !== -1) {
+        content = content.slice(end + 3).trim();
+      }
+    }
+
+    cachedDesignSkill = { content, fetchedAt: Date.now() };
+    return content;
+  } catch {
+    // Return stale cache on network error, or null
+    return cachedDesignSkill?.content ?? null;
+  }
+}

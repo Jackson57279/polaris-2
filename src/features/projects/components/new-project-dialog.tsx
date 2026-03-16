@@ -4,7 +4,7 @@ import { useState } from "react";
 import ky from "ky";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, SparklesIcon } from "lucide-react";
 
 import {
   Dialog,
@@ -62,6 +62,46 @@ function AttachImageButton() {
       title="Attach image"
     >
       <ImageIcon className="size-4" />
+    </PromptInputButton>
+  );
+}
+
+function EnhancePromptButton({
+  input,
+  onEnhanced,
+}: {
+  input: string;
+  onEnhanced: (enhanced: string) => void;
+}) {
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  const handleEnhance = async () => {
+    if (!input.trim() || isEnhancing) return;
+
+    setIsEnhancing(true);
+    try {
+      const { enhancedPrompt } = await ky
+        .post("/api/enhance-prompt", {
+          json: { prompt: input.trim() },
+          timeout: 30000,
+        })
+        .json<{ enhancedPrompt: string }>();
+
+      onEnhanced(enhancedPrompt);
+    } catch {
+      toast.error("Failed to enhance prompt");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  return (
+    <PromptInputButton
+      onClick={handleEnhance}
+      disabled={!input.trim() || isEnhancing}
+      title="Enhance prompt"
+    >
+      <SparklesIcon className={`size-4 ${isEnhancing ? "animate-pulse" : ""}`} />
     </PromptInputButton>
   );
 }
@@ -152,6 +192,7 @@ export const NewProjectDialog = ({
           <PromptInputFooter>
             <PromptInputTools>
               <AttachImageButton />
+              <EnhancePromptButton input={input} onEnhanced={setInput} />
             </PromptInputTools>
             <PromptInputSubmit
               disabled={!input || isLoading}

@@ -10,6 +10,8 @@ import { api } from "../../../../convex/_generated/api";
 import {
   CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
+  isUIGenerationRequest,
+  fetchDesignGuidelines,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { createReadFilesTool } from "./tools/read-files";
@@ -104,6 +106,17 @@ export const processMessage = inngest.createFunction(
 
     // Build system prompt with conversation history (exclude the current processing message)
     let systemPrompt = CODING_AGENT_SYSTEM_PROMPT;
+
+    // Inject premium design guidelines for UI generation requests
+    if (isUIGenerationRequest(message)) {
+      const designGuidelines = await step.run("fetch-design-guidelines", async () => {
+        return await fetchDesignGuidelines();
+      });
+
+      if (designGuidelines) {
+        systemPrompt += `\n\n<design_guidelines>\n${designGuidelines}\n</design_guidelines>`;
+      }
+    }
 
     // Filter out the current processing message and empty messages
     const contextMessages = recentMessages.filter(

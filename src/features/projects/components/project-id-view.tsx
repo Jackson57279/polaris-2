@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Allotment } from "allotment";
 import { FaGithub } from "react-icons/fa";
+import { MaximizeIcon, MinimizeIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { EditorView } from "@/features/editor/components/editor-view";
@@ -12,6 +13,7 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { PreviewView } from "./preview-view";
 import { ExportPopover } from "./export-popover";
 import { DeployPopover } from "./deploy-popover";
+import { useFullscreen } from "./fullscreen-context";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
@@ -46,6 +48,7 @@ export const ProjectIdView = ({
   projectId: Id<"projects">
 }) => {
   const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   return (
     <div className="h-full flex flex-col">
@@ -61,6 +64,18 @@ export const ProjectIdView = ({
           onClick={() => setActiveView("preview")}
         />
         <div className="flex-1 flex justify-end h-full">
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-2 px-3 border-l hover:bg-accent/30 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+            title={isFullscreen ? "Exit full screen" : "Full screen code"}
+          >
+            {isFullscreen ? (
+              <MinimizeIcon className="size-3.5" />
+            ) : (
+              <MaximizeIcon className="size-3.5" />
+            )}
+            <span className="text-sm">{isFullscreen ? "Exit" : "Full Screen"}</span>
+          </button>
           <ExportPopover projectId={projectId} />
           <DeployPopover projectId={projectId} />
         </div>
