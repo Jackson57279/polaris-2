@@ -214,24 +214,29 @@ export const processMessage = inngest.createFunction(
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
     }
 
-    const assistantResponse = await step.run(
-      "run-coding-network",
-      async () => {
-        const result = await network.run(fullMessage);
-        const lastResult = result.state.results.at(-1);
-        const textMessage = lastResult?.output.find(
-          (m) => m.type === "text" && m.role === "assistant"
-        );
+    // Run the network directly (not inside step.run) because agent-kit
+    // internally uses step.* calls, and nesting steps is not allowed.
+    const networkResult = await network.run(fullMessage);
 
-        if (textMessage?.type !== "text") {
-          return "I processed your request. Let me know if you need anything else!";
-        }
-
-        return typeof textMessage.content === "string"
+    // Search all results in reverse to find the last assistant text response.
+    // With multi-iteration networks, the final text may not be in the last result.
+    let assistantResponse: string | null = null;
+    const results = networkResult.state.results ?? [];
+    for (let i = results.length - 1; i >= 0; i--) {
+      const textMessage = results[i].output.find(
+        (m) => m.type === "text" && m.role === "assistant"
+      );
+      if (textMessage?.type === "text") {
+        assistantResponse = typeof textMessage.content === "string"
           ? textMessage.content
           : textMessage.content.map((c) => c.text).join("");
+        break;
       }
-    );
+    }
+
+    if (!assistantResponse) {
+      throw new Error("Agent network completed without producing a text response");
+    }
 
     // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {
