@@ -1,4 +1,9 @@
-import { createAgent, openai, createNetwork } from "@inngest/agent-kit";
+import {
+  createAgent,
+  openai,
+  createNetwork,
+  type Message,
+} from "@inngest/agent-kit";
 import { generateText } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
@@ -30,6 +35,33 @@ interface MessageEvent {
   message: string;
   imageUrls?: string[];
 };
+
+const extractAssistantText = (messages: Message[]): string | null => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.type !== "text" || message.role !== "assistant") {
+      continue;
+    }
+
+    const content =
+      typeof message.content === "string"
+        ? message.content
+        : message.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("");
+
+    const trimmedContent = content.trim();
+    if (trimmedContent) {
+      return trimmedContent;
+    }
+  }
+
+  return null;
+};
+
+const FALLBACK_AGENT_RESPONSE =
+  "I processed your request, but I wasn't able to produce a final text reply. Please try again or ask me to summarize the latest changes.";
 
 export const processMessage = inngest.createFunction(
   {
@@ -205,18 +237,18 @@ export const processMessage = inngest.createFunction(
       maxIter: 10,
       router: ({ network }) => {
         const lastResult = network.state.results.at(-1);
-        const hasTextResponse = lastResult?.output.some(
-          (m) => m.type === "text" && m.role === "assistant"
-        );
-        const hasToolCalls = lastResult?.output.some(
-          (m) => m.type === "tool_call"
-        );
+        if (!lastResult) {
+          return codingAgent;
+        }
 
-        // Anthropic outputs text AND tool calls together
-        // Only stop if there's text WITHOUT tool calls (final response)
-        if (hasTextResponse && !hasToolCalls) {
+        const hasToolCalls =
+          lastResult.output.some((message) => message.type === "tool_call") ||
+          lastResult.toolCalls.length > 0;
+
+        if (!hasToolCalls) {
           return undefined;
         }
+
         return codingAgent;
       }
     });
@@ -236,19 +268,29 @@ export const processMessage = inngest.createFunction(
     let assistantResponse: string | null = null;
     const results = networkResult.state.results ?? [];
     for (let i = results.length - 1; i >= 0; i--) {
-      const textMessage = results[i].output.find(
-        (m) => m.type === "text" && m.role === "assistant"
-      );
-      if (textMessage?.type === "text") {
-        assistantResponse = typeof textMessage.content === "string"
-          ? textMessage.content
-          : textMessage.content.map((c) => c.text).join("");
+      const extractedText = extractAssistantText(results[i].output);
+      if (extractedText) {
+        assistantResponse = extractedText;
         break;
       }
     }
 
     if (!assistantResponse) {
-      throw new Error("Agent network completed without producing a text response");
+      console.error("Agent network completed without assistant text", {
+        messageId,
+        conversationId,
+        projectId,
+        resultCount: results.length,
+        summaries: results.map((result, index) => ({
+          index,
+          outputTypes: result.output.map((message) => ({
+            type: message.type,
+            role: message.role,
+          })),
+          toolCallNames: result.toolCalls.map((toolCall) => toolCall.tool.name),
+        })),
+      });
+      assistantResponse = FALLBACK_AGENT_RESPONSE;
     }
 
     // Update the assistant message with the response (this also sets status to completed)
