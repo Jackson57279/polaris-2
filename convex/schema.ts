@@ -151,6 +151,29 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_type", ["type"]),
 
+  agent_run_artifacts: defineTable({
+    messageId: v.id("messages"),
+    workerType: v.union(
+      v.literal("repo_research"),
+      v.literal("exa_research"),
+      v.literal("review"),
+    ),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    summary: v.optional(v.string()),
+    payload: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_message_worker", ["messageId", "workerType"]),
+
   api_keys: defineTable({
     keyHash: v.string(),
     clerkUserId: v.string(),

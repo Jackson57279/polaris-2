@@ -717,6 +717,76 @@ export const revokeApiKey = mutation({
   },
 });
 
+export const createRunArtifact = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    workerType: v.union(
+      v.literal("repo_research"),
+      v.literal("exa_research"),
+      v.literal("review"),
+    ),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    summary: v.optional(v.string()),
+    payload: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const existing = await ctx.db
+      .query("agent_run_artifacts")
+      .withIndex("by_message_worker", (q) =>
+        q.eq("messageId", args.messageId).eq("workerType", args.workerType)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: args.status,
+        summary: args.summary,
+        payload: args.payload,
+        ...(args.status === "running" ? { startedAt: Date.now() } : {}),
+        ...(args.status === "completed" || args.status === "failed"
+          ? { completedAt: Date.now() }
+          : {}),
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("agent_run_artifacts", {
+      messageId: args.messageId,
+      workerType: args.workerType,
+      status: args.status,
+      summary: args.summary,
+      payload: args.payload,
+      startedAt: args.status === "running" ? Date.now() : undefined,
+      completedAt: args.status === "completed" ? Date.now() : undefined,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const getRunArtifacts = query({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    return await ctx.db
+      .query("agent_run_artifacts")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+  },
+});
+
 export const createProjectWithConversation = mutation({
   args: {
     internalKey: v.string(),

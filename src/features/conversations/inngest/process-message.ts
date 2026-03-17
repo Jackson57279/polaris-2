@@ -1,20 +1,20 @@
 import {
   createAgent,
-  openai,
   createNetwork,
   type Message,
 } from "@inngest/agent-kit";
 import { generateText } from "ai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { NonRetriableError } from "inngest";
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
+import { createAgentKitModel, createVercelAIModel } from "@/lib/ai-models";
 import {
   CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
+  PLAN_STEP_PROMPT,
   isUIGenerationRequest,
   fetchDesignGuidelines,
 } from "./constants";
@@ -27,6 +27,14 @@ import { createCreateFolderTool } from "./tools/create-folder";
 import { createRenameFileTool } from "./tools/rename-file";
 import { createDeleteFilesTool } from "./tools/delete-files";
 import { createScrapeUrlsTool } from "./tools/scrape-urls";
+import { repoResearchWorker } from "./workers/repo-research";
+import { exaResearchWorker } from "./workers/exa-research";
+import { reviewWorker } from "./workers/review";
+import type {
+  AgentPlan,
+  ResearchArtifact,
+  ReviewArtifact,
+} from "./workers/types";
 
 interface MessageEvent {
   messageId: Id<"messages">;
@@ -34,7 +42,7 @@ interface MessageEvent {
   projectId: Id<"projects">;
   message: string;
   imageUrls?: string[];
-};
+}
 
 const extractAssistantText = (messages: Message[]): string | null => {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -66,6 +74,10 @@ const FALLBACK_AGENT_RESPONSE =
 export const processMessage = inngest.createFunction(
   {
     id: "process-message",
+    concurrency: {
+      key: "event.data.conversationId",
+      limit: 1,
+    },
     cancelOn: [
       {
         event: "message/cancel",
@@ -76,7 +88,6 @@ export const processMessage = inngest.createFunction(
       const { messageId } = event.data.event.data as MessageEvent;
       const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
 
-      // Update the message with error content
       if (internalKey) {
         await step.run("update-message-on-failure", async () => {
           await convex.mutation(api.system.updateMessageContent, {
@@ -87,27 +98,33 @@ export const processMessage = inngest.createFunction(
           });
         });
       }
-    }
+    },
   },
   {
     event: "message/sent",
   },
   async ({ event, step }) => {
-    const { 
-      messageId, 
+    const {
+      messageId,
       conversationId,
       projectId,
       message,
       imageUrls,
     } = event.data as MessageEvent;
 
-    const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY; 
+    const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
 
     if (!internalKey) {
-      throw new NonRetriableError("POLARIS_CONVEX_INTERNAL_KEY is not configured");
+      throw new NonRetriableError(
+        "POLARIS_CONVEX_INTERNAL_KEY is not configured"
+      );
     }
 
     await step.sleep("wait-for-db-sync", "1s");
+
+    // ──────────────────────────────────────────────
+    // Stage 1 — Load conversation context
+    // ──────────────────────────────────────────────
 
     const { conversation } = await step.run(
       "get-conversation",
@@ -124,33 +141,32 @@ export const processMessage = inngest.createFunction(
       throw new NonRetriableError("Conversation not found");
     }
 
-    const codingModel =
-      process.env.POLARIS_CODING_MODEL ?? "google/gemini-3.1-pro-preview";
+    const recentMessages = await step.run(
+      "get-recent-messages",
+      async () => {
+        return await convex.query(api.system.getRecentMessages, {
+          internalKey,
+          conversationId,
+          limit: 10,
+        });
+      }
+    );
 
-    // Fetch recent messages for conversation context
-    const recentMessages = await step.run("get-recent-messages", async () => {
-      return await convex.query(api.system.getRecentMessages, {
-        internalKey,
-        conversationId,
-        limit: 10,
-      });
-    });
-
-    // Build system prompt with conversation history (exclude the current processing message)
     let systemPrompt = CODING_AGENT_SYSTEM_PROMPT;
 
-    // Inject premium design guidelines for UI generation requests
     if (isUIGenerationRequest(message)) {
-      const designGuidelines = await step.run("fetch-design-guidelines", async () => {
-        return await fetchDesignGuidelines();
-      });
+      const designGuidelines = await step.run(
+        "fetch-design-guidelines",
+        async () => {
+          return await fetchDesignGuidelines();
+        }
+      );
 
       if (designGuidelines) {
         systemPrompt += `\n\n<design_guidelines>\n${designGuidelines}\n</design_guidelines>`;
       }
     }
 
-    // Filter out the current processing message and empty messages
     const contextMessages = recentMessages.filter(
       (msg) => msg._id !== messageId && msg.content.trim() !== ""
     );
@@ -163,31 +179,18 @@ export const processMessage = inngest.createFunction(
       systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
     }
 
-    // Generate conversation title if it's still the default
+    // Title generation
     const shouldGenerateTitle =
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     if (shouldGenerateTitle) {
-      const openrouter = createOpenAICompatible({
-        name: "openrouter",
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: "https://openrouter.ai/api/v1",
-      });
-
       const generatedTitle = await step.run(
         "generate-conversation-title",
         async () => {
           const result = await generateText({
-            model: openrouter("x-ai/grok-4.1-fast"),
-            // Keep title prompt short and deterministic
+            model: createVercelAIModel("title"),
             prompt: `${TITLE_GENERATOR_SYSTEM_PROMPT}\n\nUser message:\n${message}`,
-            experimental_telemetry: {
-              isEnabled: true,
-              recordInputs: true,
-              recordOutputs: true,
-            },
           });
-
           const text = result.text.trim();
           return text.length > 0 ? text : null;
         }
@@ -204,20 +207,112 @@ export const processMessage = inngest.createFunction(
       }
     }
 
-    // Create the coding agent with file tools
+    // ──────────────────────────────────────────────
+    // Stage 2 — Plan
+    // ──────────────────────────────────────────────
+
+    const plan = await step.run("create-plan", async () => {
+      const contextSummary =
+        contextMessages.length > 0
+          ? contextMessages
+              .slice(-3)
+              .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
+              .join("\n")
+          : "No prior conversation.";
+
+      const result = await generateText({
+        model: createVercelAIModel("research"),
+        prompt: `${PLAN_STEP_PROMPT}\n\nUser request: "${message}"\n\nRecent context:\n${contextSummary}`,
+      });
+
+      try {
+        return JSON.parse(result.text) as AgentPlan;
+      } catch {
+        return {
+          needsResearch: false,
+          searchQueries: [],
+          focusAreas: [],
+          implementationHints: result.text,
+          complexity: "moderate",
+        } satisfies AgentPlan;
+      }
+    });
+
+    // ──────────────────────────────────────────────
+    // Stage 3 — Research fan-out (parallel workers)
+    // ──────────────────────────────────────────────
+
+    let repoResearch: ResearchArtifact | null = null;
+    let exaResearch: ResearchArtifact | null = null;
+
+    if (plan.needsResearch) {
+      const workerBase = {
+        messageId: messageId as string,
+        projectId: projectId as string,
+        conversationId: conversationId as string,
+        userMessage: message,
+      };
+
+      const [repoResult, exaResult] = await Promise.all([
+        step.invoke("repo-research", {
+          function: repoResearchWorker,
+          data: { ...workerBase, focusAreas: plan.focusAreas },
+        }),
+        step.invoke("exa-research", {
+          function: exaResearchWorker,
+          data: { ...workerBase, searchQueries: plan.searchQueries },
+        }),
+      ]);
+
+      repoResearch = repoResult as ResearchArtifact;
+      exaResearch = exaResult as ResearchArtifact;
+    }
+
+    // ──────────────────────────────────────────────
+    // Stage 4 — Enrich context with research
+    // ──────────────────────────────────────────────
+
+    if (repoResearch?.summary) {
+      systemPrompt += `\n\n<repo_research>\n${repoResearch.summary}`;
+      if (repoResearch.relevantFiles?.length) {
+        systemPrompt += `\n\nRelevant files:\n${repoResearch.relevantFiles
+          .map((f) => `- ${f.name}: ${f.snippet}`)
+          .join("\n")}`;
+      }
+      systemPrompt += `\n</repo_research>`;
+    }
+
+    const skipExaSummaries = new Set([
+      "No external research performed.",
+      "External search returned no results.",
+    ]);
+
+    if (
+      exaResearch?.summary &&
+      !skipExaSummaries.has(exaResearch.summary)
+    ) {
+      systemPrompt += `\n\n<external_research>\n${exaResearch.summary}`;
+      if (exaResearch.citations?.length) {
+        systemPrompt += `\n\nSources:\n${exaResearch.citations
+          .map((c) => `- [${c.title}](${c.url})`)
+          .join("\n")}`;
+      }
+      systemPrompt += `\n</external_research>`;
+    }
+
+    if (plan.implementationHints) {
+      systemPrompt += `\n\n<implementation_plan>\n${plan.implementationHints}\n</implementation_plan>`;
+    }
+
+    // ──────────────────────────────────────────────
+    // Stage 5 — Manager builds (coding agent network)
+    // ──────────────────────────────────────────────
+
     const codingAgent = createAgent({
       name: "polaris-coding-agent",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-      model: openai({
-        model: codingModel,
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseUrl: "https://openrouter.ai/api/v1",
-        defaultParameters: {
-          temperature: 0.3,
-          max_completion_tokens: 8000,
-        },
-      }),
+      model: createAgentKitModel("manager"),
       tools: [
         createListFilesTool({ internalKey, projectId }),
         createReadFilesTool({ internalKey }),
@@ -230,45 +325,38 @@ export const processMessage = inngest.createFunction(
       ],
     });
 
-    // Create network with single agent
     const network = createNetwork({
       name: "polaris-coding-network",
       agents: [codingAgent],
       maxIter: 10,
-      router: ({ network }) => {
-        const lastResult = network.state.results.at(-1);
+      router: ({ network: net }) => {
+        const lastResult = net.state.results.at(-1);
         if (!lastResult) {
           return codingAgent;
         }
 
         const hasToolCalls =
-          lastResult.output.some((message) => message.type === "tool_call") ||
+          lastResult.output.some((msg) => msg.type === "tool_call") ||
           lastResult.toolCalls.length > 0;
 
-        if (!hasToolCalls) {
-          return undefined;
-        }
-
-        return codingAgent;
-      }
+        return hasToolCalls ? codingAgent : undefined;
+      },
     });
 
-    // Build the full message content including any reference images
     let fullMessage = message;
     if (imageUrls && imageUrls.length > 0) {
-      fullMessage += `\n\nReference images provided by the user:\n${imageUrls.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
+      fullMessage += `\n\nReference images provided by the user:\n${imageUrls
+        .map((url, i) => `${i + 1}. ${url}`)
+        .join("\n")}`;
     }
 
-    // Run the network directly (not inside step.run) because agent-kit
-    // internally uses step.* calls, and nesting steps is not allowed.
+    // AgentKit internally uses step.* calls — must NOT be nested inside step.run
     const networkResult = await network.run(fullMessage);
 
-    // Search all results in reverse to find the last assistant text response.
-    // With multi-iteration networks, the final text may not be in the last result.
     let assistantResponse: string | null = null;
-    const results = networkResult.state.results ?? [];
-    for (let i = results.length - 1; i >= 0; i--) {
-      const extractedText = extractAssistantText(results[i].output);
+    const agentResults = networkResult.state.results ?? [];
+    for (let i = agentResults.length - 1; i >= 0; i--) {
+      const extractedText = extractAssistantText(agentResults[i].output);
       if (extractedText) {
         assistantResponse = extractedText;
         break;
@@ -280,26 +368,50 @@ export const processMessage = inngest.createFunction(
         messageId,
         conversationId,
         projectId,
-        resultCount: results.length,
-        summaries: results.map((result, index) => ({
-          index,
-          outputTypes: result.output.map((message) => ({
-            type: message.type,
-            role: message.role,
-          })),
-          toolCallNames: result.toolCalls.map((toolCall) => toolCall.tool.name),
-        })),
+        resultCount: agentResults.length,
       });
       assistantResponse = FALLBACK_AGENT_RESPONSE;
     }
 
-    // Update the assistant message with the response (this also sets status to completed)
+    // ──────────────────────────────────────────────
+    // Stage 6 — Review (skipped for simple tasks)
+    // ──────────────────────────────────────────────
+
+    if (
+      plan.complexity !== "simple" &&
+      assistantResponse !== FALLBACK_AGENT_RESPONSE
+    ) {
+      const reviewResult = (await step.invoke("review", {
+        function: reviewWorker,
+        data: {
+          messageId: messageId as string,
+          projectId: projectId as string,
+          conversationId: conversationId as string,
+          userMessage: message,
+          implementationSummary: assistantResponse,
+        },
+      })) as ReviewArtifact;
+
+      if (
+        reviewResult.quality === "critical_issues" &&
+        reviewResult.issues.length > 0
+      ) {
+        assistantResponse += `\n\n---\n**Review Notes:**\n${reviewResult.issues
+          .map((issue) => `- ${issue}`)
+          .join("\n")}`;
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // Stage 7 — Finalize
+    // ──────────────────────────────────────────────
+
     await step.run("update-assistant-message", async () => {
       await convex.mutation(api.system.updateMessageContent, {
         internalKey,
         messageId,
-        content: assistantResponse,
-      })
+        content: assistantResponse!,
+      });
     });
 
     return { success: true, messageId, conversationId };
