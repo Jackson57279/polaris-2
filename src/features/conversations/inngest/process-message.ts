@@ -27,9 +27,9 @@ import { createCreateFolderTool } from "./tools/create-folder";
 import { createRenameFileTool } from "./tools/rename-file";
 import { createDeleteFilesTool } from "./tools/delete-files";
 import { createScrapeUrlsTool } from "./tools/scrape-urls";
-import { repoResearchWorker } from "./workers/repo-research";
-import { exaResearchWorker } from "./workers/exa-research";
-import { reviewWorker } from "./workers/review";
+import { runRepoResearch } from "./workers/repo-research";
+import { runExaResearch } from "./workers/exa-research";
+import { runReview } from "./workers/review";
 import type {
   AgentPlan,
   ResearchArtifact,
@@ -254,14 +254,12 @@ export const processMessage = inngest.createFunction(
       };
 
       const [repoResult, exaResult] = await Promise.all([
-        step.invoke("repo-research", {
-          function: repoResearchWorker,
-          data: { ...workerBase, focusAreas: plan.focusAreas },
-        }),
-        step.invoke("exa-research", {
-          function: exaResearchWorker,
-          data: { ...workerBase, searchQueries: plan.searchQueries },
-        }),
+        step.run("repo-research", () =>
+          runRepoResearch({ ...workerBase, focusAreas: plan.focusAreas }, internalKey)
+        ),
+        step.run("exa-research", () =>
+          runExaResearch({ ...workerBase, searchQueries: plan.searchQueries }, internalKey)
+        ),
       ]);
 
       repoResearch = repoResult as ResearchArtifact;
@@ -381,16 +379,18 @@ export const processMessage = inngest.createFunction(
       plan.complexity !== "simple" &&
       assistantResponse !== FALLBACK_AGENT_RESPONSE
     ) {
-      const reviewResult = (await step.invoke("review", {
-        function: reviewWorker,
-        data: {
-          messageId: messageId as string,
-          projectId: projectId as string,
-          conversationId: conversationId as string,
-          userMessage: message,
-          implementationSummary: assistantResponse,
-        },
-      })) as ReviewArtifact;
+      const reviewResult = (await step.run("review", () =>
+        runReview(
+          {
+            messageId: messageId as string,
+            projectId: projectId as string,
+            conversationId: conversationId as string,
+            userMessage: message,
+            implementationSummary: assistantResponse!,
+          },
+          internalKey
+        )
+      )) as ReviewArtifact;
 
       if (
         reviewResult.quality === "critical_issues" &&

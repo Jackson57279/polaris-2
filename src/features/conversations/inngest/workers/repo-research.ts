@@ -24,6 +24,72 @@ function isKeyFile(name: string): boolean {
   );
 }
 
+export async function runRepoResearch(
+  data: RepoResearchInput,
+  internalKey: string
+): Promise<ResearchArtifact> {
+  const files = await convex.query(api.system.getProjectFiles, {
+    internalKey,
+    projectId: data.projectId as Id<"projects">,
+  });
+
+  const folders = files.filter((f) => f.type === "folder");
+  const fileEntries = files.filter((f) => f.type === "file");
+
+  const fileTree = [
+    ...folders.map((f) => `[dir]  ${f.name}`),
+    ...fileEntries.map((f) => `[file] ${f.name}`),
+  ].join("\n");
+
+  const keyFiles = fileEntries.filter((f) => isKeyFile(f.name));
+  const keyFileContents: { name: string; content: string }[] = [];
+
+  for (const file of keyFiles.slice(0, MAX_KEY_FILES)) {
+    const full = await convex.query(api.system.getFileById, {
+      internalKey,
+      fileId: file._id,
+    });
+    if (full?.content) {
+      keyFileContents.push({
+        name: full.name,
+        content: full.content.slice(0, MAX_FILE_CONTENT_LENGTH),
+      });
+    }
+  }
+
+  const result = await generateText({
+    model: createVercelAIModel("research"),
+    prompt: `${REPO_RESEARCH_PROMPT}
+
+User request: "${data.userMessage}"
+Focus areas: ${data.focusAreas.join(", ") || "general"}
+
+Project files:
+${fileTree}
+
+Key file contents:
+${keyFileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
+  });
+
+  let artifact: ResearchArtifact;
+  try {
+    artifact = JSON.parse(result.text) as ResearchArtifact;
+  } catch {
+    artifact = { summary: result.text, relevantFiles: [] };
+  }
+
+  await convex.mutation(api.system.createRunArtifact, {
+    internalKey,
+    messageId: data.messageId as Id<"messages">,
+    workerType: "repo_research" as const,
+    status: "completed" as const,
+    summary: artifact.summary,
+    payload: JSON.stringify(artifact),
+  });
+
+  return artifact;
+}
+
 export const repoResearchWorker = inngest.createFunction(
   { id: "repo-research-worker" },
   { event: "worker/repo-research" },
@@ -35,71 +101,8 @@ export const repoResearchWorker = inngest.createFunction(
       throw new NonRetriableError("POLARIS_CONVEX_INTERNAL_KEY is not configured");
     }
 
-    const artifact: ResearchArtifact = await step.run(
-      "analyze-repo",
-      async () => {
-        const files = await convex.query(api.system.getProjectFiles, {
-          internalKey,
-          projectId: data.projectId as Id<"projects">,
-        });
-
-        const folders = files.filter((f) => f.type === "folder");
-        const fileEntries = files.filter((f) => f.type === "file");
-
-        const fileTree = [
-          ...folders.map((f) => `[dir]  ${f.name}`),
-          ...fileEntries.map((f) => `[file] ${f.name}`),
-        ].join("\n");
-
-        const keyFiles = fileEntries.filter((f) => isKeyFile(f.name));
-        const keyFileContents: { name: string; content: string }[] = [];
-
-        for (const file of keyFiles.slice(0, MAX_KEY_FILES)) {
-          const full = await convex.query(api.system.getFileById, {
-            internalKey,
-            fileId: file._id,
-          });
-          if (full?.content) {
-            keyFileContents.push({
-              name: full.name,
-              content: full.content.slice(0, MAX_FILE_CONTENT_LENGTH),
-            });
-          }
-        }
-
-        const result = await generateText({
-          model: createVercelAIModel("research"),
-          prompt: `${REPO_RESEARCH_PROMPT}
-
-User request: "${data.userMessage}"
-Focus areas: ${data.focusAreas.join(", ") || "general"}
-
-Project files:
-${fileTree}
-
-Key file contents:
-${keyFileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
-        });
-
-        try {
-          return JSON.parse(result.text) as ResearchArtifact;
-        } catch {
-          return { summary: result.text, relevantFiles: [] } as ResearchArtifact;
-        }
-      }
+    return await step.run("analyze-save", () =>
+      runRepoResearch(data, internalKey)
     );
-
-    await step.run("save-artifact", async () => {
-      await convex.mutation(api.system.createRunArtifact, {
-        internalKey,
-        messageId: data.messageId as Id<"messages">,
-        workerType: "repo_research" as const,
-        status: "completed" as const,
-        summary: artifact.summary,
-        payload: JSON.stringify(artifact),
-      });
-    });
-
-    return artifact;
   }
 );
