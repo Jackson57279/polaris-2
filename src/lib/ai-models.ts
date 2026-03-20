@@ -33,7 +33,7 @@ export function createAgentKitModel(role: AgentRole) {
     baseUrl: "https://openrouter.ai/api/v1",
     defaultParameters: {
       temperature: 0.3,
-      max_completion_tokens: 8000,
+      max_completion_tokens: 32000,
     },
   });
 }
