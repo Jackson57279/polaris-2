@@ -2,7 +2,7 @@
 
 a browser-based AI code editor. like cursor but it lives in your browser and you built it yourself.
 
-[![YouTube](https://img.shields.io/badge/YouTube-Tutorial-red?style=for-the-badge&logo=youtube)](https://youtu.be/Xf9rHPNBMyQ)
+
 
 ---
 
