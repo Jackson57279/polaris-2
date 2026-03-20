@@ -34,5 +34,8 @@ export interface AgentPlan {
   searchQueries: string[];
   focusAreas: string[];
   implementationHints: string;
+  steps: string[];
+  potentialIssues: string[];
+  filesToModify: string[];
   complexity: "simple" | "moderate" | "complex";
 }
