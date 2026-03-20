@@ -233,6 +233,9 @@ export const processMessage = inngest.createFunction(
           searchQueries: [],
           focusAreas: [],
           implementationHints: result.text,
+          steps: [],
+          potentialIssues: [],
+          filesToModify: [],
           complexity: "moderate",
         } satisfies AgentPlan;
       }
@@ -298,8 +301,37 @@ export const processMessage = inngest.createFunction(
       systemPrompt += `\n</external_research>`;
     }
 
-    if (plan.implementationHints) {
-      systemPrompt += `\n\n<implementation_plan>\n${plan.implementationHints}\n</implementation_plan>`;
+    if (
+      plan.implementationHints ||
+      plan.steps?.length ||
+      plan.potentialIssues?.length ||
+      plan.filesToModify?.length
+    ) {
+      systemPrompt += `\n\n<implementation_plan>`;
+
+      if (plan.implementationHints) {
+        systemPrompt += `\n\n## Approach\n${plan.implementationHints}`;
+      }
+
+      if (plan.steps?.length) {
+        systemPrompt += `\n\n## Implementation Steps\n${plan.steps
+          .map((s, i) => `${i + 1}. ${s}`)
+          .join("\n")}`;
+      }
+
+      if (plan.filesToModify?.length) {
+        systemPrompt += `\n\n## Files to Create / Modify\n${plan.filesToModify
+          .map((f) => `- ${f}`)
+          .join("\n")}`;
+      }
+
+      if (plan.potentialIssues?.length) {
+        systemPrompt += `\n\n## Watch Out For\n${plan.potentialIssues
+          .map((p) => `- ${p}`)
+          .join("\n")}`;
+      }
+
+      systemPrompt += `\n</implementation_plan>`;
     }
 
     // ──────────────────────────────────────────────
