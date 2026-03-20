@@ -10,6 +10,14 @@ export default function GlobalError({
   error: Error & { digest?: string };
 }) {
   useEffect(() => {
+    // When a Server Action ID can't be found it means the client has stale
+    // JavaScript from a previous deployment. Hard-reload to pick up the latest
+    // bundle instead of showing an unrecoverable error screen.
+    if (error.message?.includes("Failed to find Server Action")) {
+      window.location.reload();
+      return;
+    }
+
     Sentry.captureException(error);
   }, [error]);
 
