@@ -63,7 +63,7 @@ export const handleClerkWebhook = internalAction({
     if (evt.type.startsWith("subscription")) {
       const subscriptionId = getString(data, "id") ?? getString(data, "subscription_id");
       const clerkUserId = extractClerkUserId(data);
-      
+
       if (subscriptionId && clerkUserId) {
         const plan = asRecord(data.plan);
         const metadata = asRecord(data.metadata);
@@ -73,6 +73,7 @@ export const handleClerkWebhook = internalAction({
           clerkUserId,
           status: mapSubscriptionStatus(evt.type),
           planId: getString(data, "plan_id") ?? (plan ? getString(plan, "id") : undefined),
+          planSlug: getString(data, "plan_slug") ?? (plan ? getString(plan, "slug") : undefined),
           quantity: getNumber(data, "quantity"),
           currentPeriodEnd: toMillis(data.period_end) ?? toMillis(data.current_period_end),
           metadataJson: metadata ? toJsonString(metadata) : undefined,

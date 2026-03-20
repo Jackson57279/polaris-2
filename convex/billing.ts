@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 
 const validateInternalKey = (key: string) => {
   const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
@@ -74,6 +74,7 @@ export const upsertSubscriptionInternal = internalMutation({
       v.literal("abandoned"),
     ),
     planId: v.optional(v.string()),
+    planSlug: v.optional(v.string()),
     quantity: v.optional(v.number()),
     currentPeriodEnd: v.optional(v.number()),
     metadataJson: v.optional(v.string()),
@@ -91,6 +92,7 @@ export const upsertSubscriptionInternal = internalMutation({
         clerkUserId: args.clerkUserId,
         status: args.status,
         planId: args.planId,
+        planSlug: args.planSlug,
         quantity: args.quantity,
         currentPeriodEnd: args.currentPeriodEnd,
         metadataJson: args.metadataJson,
@@ -104,6 +106,7 @@ export const upsertSubscriptionInternal = internalMutation({
       clerkUserId: args.clerkUserId,
       status: args.status,
       planId: args.planId,
+      planSlug: args.planSlug,
       quantity: args.quantity,
       currentPeriodEnd: args.currentPeriodEnd,
       metadataJson: args.metadataJson,
@@ -195,6 +198,7 @@ export const upsertSubscription = mutation({
       v.literal("abandoned"),
     ),
     planId: v.optional(v.string()),
+    planSlug: v.optional(v.string()),
     quantity: v.optional(v.number()),
     currentPeriodEnd: v.optional(v.number()),
     metadataJson: v.optional(v.string()),
@@ -215,6 +219,7 @@ export const upsertSubscription = mutation({
         clerkUserId: args.clerkUserId,
         status: args.status,
         planId: args.planId,
+        planSlug: args.planSlug,
         quantity: args.quantity,
         currentPeriodEnd: args.currentPeriodEnd,
         metadataJson: args.metadataJson,
@@ -228,6 +233,7 @@ export const upsertSubscription = mutation({
       clerkUserId: args.clerkUserId,
       status: args.status,
       planId: args.planId,
+      planSlug: args.planSlug,
       quantity: args.quantity,
       currentPeriodEnd: args.currentPeriodEnd,
       metadataJson: args.metadataJson,
@@ -302,5 +308,65 @@ export const recordWebhookEvent = mutation({
       payloadJson: args.payloadJson,
       createdAt: Date.now(),
     });
+  },
+});
+
+// Authenticated queries — called from the frontend with a Clerk JWT (no internal key needed)
+
+export const getMySubscription = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const clerkUserId = identity.subject;
+
+    // Return the most recent active subscription
+    const active = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_clerk_user_status", (q) =>
+        q.eq("clerkUserId", clerkUserId).eq("status", "active")
+      )
+      .first();
+
+    if (active) return active;
+
+    // Fall back to the most recently updated subscription for any status
+    const latest = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", clerkUserId))
+      .order("desc")
+      .first();
+
+    return latest ?? null;
+  },
+});
+
+export const getMyWallet = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    return await ctx.db
+      .query("wallets")
+      .withIndex("by_wallet_key", (q) =>
+        q.eq("clerkUserId", identity.subject).eq("currency", "USD")
+      )
+      .first();
+  },
+});
+
+export const getMyPayments = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    return await ctx.db
+      .query("payments")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", identity.subject))
+      .order("desc")
+      .collect();
   },
 });

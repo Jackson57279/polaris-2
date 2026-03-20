@@ -114,6 +114,7 @@ export default defineSchema({
       v.literal("abandoned"),
     ),
     planId: v.optional(v.string()),
+    planSlug: v.optional(v.string()),
     quantity: v.optional(v.number()),
     currentPeriodEnd: v.optional(v.number()),
     metadataJson: v.optional(v.string()),
