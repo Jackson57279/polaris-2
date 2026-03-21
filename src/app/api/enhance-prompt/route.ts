@@ -12,39 +12,47 @@ const requestSchema = z.object({
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const body = await request.json();
-  const { prompt } = requestSchema.parse(body);
+    const body = await request.json();
+    const { prompt } = requestSchema.parse(body);
 
-  const openrouter = createOpenAICompatible({
-    name: "openrouter",
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseURL: "https://openrouter.ai/api/v1",
-  });
+    const openrouter = createOpenAICompatible({
+      name: "openrouter",
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: "https://openrouter.ai/api/v1",
+    });
 
-  const result = await generateText({
-    model: openrouter("moonshotai/kimi-k2.5"),
-    system: ENHANCE_SYSTEM_PROMPT,
-    prompt: `Here is the user's prompt to enhance:\n\n${prompt}`,
-    temperature: 0.7,
-  });
+    const result = await generateText({
+      model: openrouter("moonshotai/kimi-k2.5:nitro"),
+      system: ENHANCE_SYSTEM_PROMPT,
+      prompt: `Here is the user's prompt to enhance:\n\n${prompt}`,
+      temperature: 0.7,
+    });
 
-  const enhanced = result.text.trim();
+    const enhanced = result.text.trim();
 
-  if (!enhanced) {
+    if (!enhanced) {
+      return NextResponse.json(
+        { error: "Failed to enhance prompt" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      enhancedPrompt: enhanced,
+    });
+  } catch (error) {
+    console.error("Enhance prompt error:", error);
     return NextResponse.json(
       { error: "Failed to enhance prompt" },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    success: true,
-    enhancedPrompt: enhanced,
-  });
 }

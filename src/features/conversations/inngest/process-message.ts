@@ -426,12 +426,8 @@ export const processMessage = inngest.createFunction(
         .join("\n")}`;
     }
 
-    // AgentKit internally uses step.* calls with agent name as step ID.
-    // Wrapping in step.run() encapsulates AgentKit's internal steps to prevent
-    // step ID collisions when the network iterates multiple times.
-    const networkResult = await step.run("coding-agent-execution", async () => {
-      return await network.run(fullMessage);
-    });
+    // AgentKit internally uses step.* calls — must NOT be nested inside step.run
+    const networkResult = await network.run(fullMessage);
 
     let assistantResponse: string | null = null;
     const agentResults = networkResult.state.results ?? [];
