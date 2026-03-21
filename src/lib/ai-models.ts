@@ -8,7 +8,7 @@ const MODEL_DEFAULTS: Record<AgentRole, string> = {
   research: "x-ai/grok-4.1-fast",
   review: "x-ai/grok-4.1-fast",
   title: "x-ai/grok-4.1-fast",
-  "skill-router": "google/gemini-flash-1.5",
+  "skill-router": "google/gemini-3.1-flash-lite-preview",
   enhance: "moonshotai/kimi-k2.5",
 };
 
