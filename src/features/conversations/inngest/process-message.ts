@@ -528,7 +528,7 @@ export const processMessage = inngest.createFunction(
     const toolCallRecords: Array<{ toolName: string; label: string }> = [];
     for (const result of agentResults) {
       for (const tc of result.toolCalls) {
-        const label = getToolLabel(tc.tool.name, tc.tool.input, tc.content);
+        const label = getToolLabel(tc.tool.name, tc.tool.input ?? {}, tc.content);
         if (label) {
           toolCallRecords.push({ toolName: tc.tool.name, label });
         }
