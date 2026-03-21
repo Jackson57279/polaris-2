@@ -95,6 +95,14 @@ export const updateMessageContent = mutation({
     internalKey: v.string(),
     messageId: v.id("messages"),
     content: v.string(),
+    toolCalls: v.optional(
+      v.array(
+        v.object({
+          toolName: v.string(),
+          label: v.string(),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -102,6 +110,7 @@ export const updateMessageContent = mutation({
     await ctx.db.patch(args.messageId, {
       content: args.content,
       status: "completed" as const,
+      ...(args.toolCalls !== undefined && { toolCalls: args.toolCalls }),
     });
   },
 });
