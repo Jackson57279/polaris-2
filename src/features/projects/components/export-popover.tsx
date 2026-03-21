@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useForm } from "@tanstack/react-form";
 import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { FaGithub } from "react-icons/fa";
 import {
   CheckCheckIcon,
@@ -83,6 +84,10 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
             },
           })
 
+        posthog.capture("github_export_initiated", {
+          project_id: projectId,
+          visibility: value.visibility,
+        });
         toast.success("Export started...");
       } catch (error) {
         if (error instanceof HTTPError) {

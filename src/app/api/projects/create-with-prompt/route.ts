@@ -12,6 +12,7 @@ import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
 
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 import { api } from "../../../../../convex/_generated/api";
 
@@ -92,6 +93,18 @@ export async function POST(request: Request) {
       imageUrls,
     },
   });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "project_created_with_prompt",
+    properties: {
+      project_id: projectId,
+      has_images: imageUrls.length > 0,
+      image_count: imageUrls.length,
+    },
+  });
+  await posthog.shutdown();
 
   return NextResponse.json({ projectId });
 };

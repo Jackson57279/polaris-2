@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import { convex } from "@/lib/convex-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -233,6 +234,18 @@ export async function POST(request: Request) {
       deploymentProjectId: vercelProjectId,
     });
 
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: "deploy_completed",
+      properties: {
+        project_id: projectId,
+        provider: "vercel",
+        url: liveUrl,
+      },
+    });
+    await posthog.shutdown();
+
     return NextResponse.json({
       success: true,
       url: liveUrl,
@@ -248,6 +261,18 @@ export async function POST(request: Request) {
       provider: "vercel",
       deploymentError: message,
     });
+
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: userId,
+      event: "deploy_failed",
+      properties: {
+        project_id: projectId,
+        provider: "vercel",
+        error: message,
+      },
+    });
+    await posthog.shutdown();
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -29,6 +29,8 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 
+import posthog from "posthog-js";
+
 import { useUploadThing } from "@/lib/uploadthing";
 import { Id } from "../../../../convex/_generated/dataModel";
 
@@ -88,6 +90,9 @@ function EnhancePromptButton({
         .json<{ enhancedPrompt: string }>();
 
       onEnhanced(enhancedPrompt);
+      posthog.capture("prompt_enhanced", {
+        prompt_length: input.trim().length,
+      });
     } catch {
       toast.error("Failed to enhance prompt");
     } finally {
@@ -147,11 +152,17 @@ export const NewProjectDialog = ({
         })
         .json<{ projectId: Id<"projects"> }>();
 
+      posthog.capture("project_created", {
+        has_images: imageUrls.length > 0,
+        image_count: imageUrls.length,
+        project_id: projectId,
+      });
       toast.success("Project created");
       onOpenChange(false);
       setInput("");
       router.push(`/projects/${projectId}`);
-    } catch {
+    } catch (error) {
+      posthog.captureException(error);
       toast.error("Unable to create project");
     } finally {
       setIsSubmitting(false);

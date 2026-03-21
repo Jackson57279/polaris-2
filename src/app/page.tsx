@@ -6,17 +6,17 @@ const baseUrl =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
 
 export const metadata: Metadata = {
-  title: "LuminaWeb",
+  title: "LuminaWeb – Cloud IDE with AI | Code in Your Browser",
   description:
-    "Cloud IDE with AI suggestions, quick edit (Cmd+K), and GitHub integration. Create and open projects in your browser.",
+    "LuminaWeb is a browser-based cloud IDE for writing, running, and deploying code. AI suggestions, Cmd+K quick edit, GitHub integration, and WebContainer execution — no installation required.",
   openGraph: {
-    title: "LuminaWeb – Cloud IDE with AI",
+    title: "LuminaWeb – Cloud IDE with AI | Code in Your Browser",
     description:
-      "Cloud IDE with AI suggestions, quick edit (Cmd+K), and GitHub integration.",
+      "Browser-based cloud IDE with AI code suggestions, Cmd+K quick edit, GitHub import/export, and in-browser execution. Start coding in seconds — no install needed.",
+    url: baseUrl,
+    type: "website",
   },
-  ...(baseUrl && {
-    alternates: { canonical: baseUrl },
-  }),
+  alternates: baseUrl ? { canonical: baseUrl } : undefined,
 };
 
 const Home = () => {

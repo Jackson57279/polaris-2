@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { SiVercel, SiNetlify } from "react-icons/si";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -76,6 +77,12 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
     const existingDeployId =
       localStorage.getItem(DEPLOY_ID_STORAGE_KEY(projectId, provider)) ??
       undefined;
+
+    posthog.capture("deploy_initiated", {
+      provider,
+      project_id: projectId,
+      is_redeploy: !!existingDeployId,
+    });
 
     await deploy({
       projectId,
@@ -187,6 +194,10 @@ export const DeployPopover = ({ projectId }: DeployPopoverProps) => {
         throw new Error(body?.error ?? "Unable to send deploy error to chat");
       }
 
+      posthog.capture("deploy_error_sent_to_chat", {
+        provider: displayProvider,
+        project_id: projectId,
+      });
       toast.success("Deploy error sent to chat");
     } catch {
       toast.error("Failed to send deploy error to chat");

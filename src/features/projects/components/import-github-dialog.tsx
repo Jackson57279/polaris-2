@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useForm } from "@tanstack/react-form";
 import { useClerk } from "@clerk/nextjs";
+import posthog from "posthog-js";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,9 @@ export const ImportGithubDialog = ({
             eventId: string;
           }>()
 
+        posthog.capture("github_import_started", {
+          project_id: projectId,
+        });
         toast.success("Importing repository...");
         onOpenChange(false);
         form.reset();

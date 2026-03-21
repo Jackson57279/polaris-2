@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 
 import { convex } from "@/lib/convex-client";
 import { inngest } from "@/inngest/client";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 import { api } from "../../../../../convex/_generated/api";
 
@@ -75,9 +76,21 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ 
-    success: true, 
-    projectId, 
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "github_import_initiated",
+    properties: {
+      project_id: projectId,
+      repo_owner: owner,
+      repo_name: repo,
+    },
+  });
+  await posthog.shutdown();
+
+  return NextResponse.json({
+    success: true,
+    projectId,
     eventId: event.ids[0]
   });
 };

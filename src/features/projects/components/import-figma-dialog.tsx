@@ -15,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import posthog from "posthog-js";
+
 import { useUploadThing } from "@/lib/uploadthing";
 
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -69,6 +71,10 @@ export const ImportFigmaDialog = ({
         })
         .json<{ success: boolean; projectId: Id<"projects">; eventId: string }>();
 
+      posthog.capture("figma_import_started", {
+        project_id: projectId,
+        file_name: selectedFile.name,
+      });
       toast.success("Building your website from Figma design...");
       onOpenChange(false);
       setSelectedFile(null);

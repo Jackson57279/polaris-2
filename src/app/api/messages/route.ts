@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -112,6 +113,18 @@ export async function POST(request: Request) {
       imageUrls,
     },
   });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "ai_message_sent",
+    properties: {
+      project_id: projectId,
+      conversation_id: conversationId,
+      has_images: imageUrls.length > 0,
+    },
+  });
+  await posthog.shutdown();
 
   return NextResponse.json({
     success: true,
