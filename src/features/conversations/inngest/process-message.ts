@@ -15,8 +15,12 @@ import {
   CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
   PLAN_STEP_PROMPT,
+  SKILL_ROUTER_PROMPT,
+  ENHANCE_SYSTEM_PROMPT,
   isUIGenerationRequest,
   fetchDesignGuidelines,
+  fetchMinimalistGuidelines,
+  type DesignSkillType,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { createReadFilesTool } from "./tools/read-files";
@@ -154,19 +158,6 @@ export const processMessage = inngest.createFunction(
 
     let systemPrompt = CODING_AGENT_SYSTEM_PROMPT;
 
-    if (isUIGenerationRequest(message)) {
-      const designGuidelines = await step.run(
-        "fetch-design-guidelines",
-        async () => {
-          return await fetchDesignGuidelines();
-        }
-      );
-
-      if (designGuidelines) {
-        systemPrompt += `\n\n<design_guidelines>\n${designGuidelines}\n</design_guidelines>`;
-      }
-    }
-
     const contextMessages = recentMessages.filter(
       (msg) => msg._id !== messageId && msg.content.trim() !== ""
     );
@@ -177,6 +168,30 @@ export const processMessage = inngest.createFunction(
         .join("\n\n");
 
       systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
+    }
+
+    // ──────────────────────────────────────────────
+    // Stage 1.5 — Auto-enhance UI prompts
+    // ──────────────────────────────────────────────
+
+    // Use the (possibly enhanced) message downstream for plan/research/agent.
+    // Keep the original for title generation so titles stay concise.
+    let workingMessage = message;
+
+    if (isUIGenerationRequest(message)) {
+      const enhanced = await step.run("auto-enhance-prompt", async () => {
+        const result = await generateText({
+          model: createVercelAIModel("enhance"),
+          system: ENHANCE_SYSTEM_PROMPT,
+          prompt: `Here is the user's prompt to enhance:\n\n${message}`,
+          temperature: 0.7,
+        });
+        return result.text.trim() || null;
+      });
+
+      if (enhanced) {
+        workingMessage = enhanced;
+      }
     }
 
     // Title generation
@@ -222,7 +237,7 @@ export const processMessage = inngest.createFunction(
 
       const result = await generateText({
         model: createVercelAIModel("research"),
-        prompt: `${PLAN_STEP_PROMPT}\n\nUser request: "${message}"\n\nRecent context:\n${contextSummary}`,
+        prompt: `${PLAN_STEP_PROMPT}\n\nUser request: "${workingMessage}"\n\nRecent context:\n${contextSummary}`,
       });
 
       try {
@@ -253,7 +268,7 @@ export const processMessage = inngest.createFunction(
         messageId: messageId as string,
         projectId: projectId as string,
         conversationId: conversationId as string,
-        userMessage: message,
+        userMessage: workingMessage,
       };
 
       const [repoResult, exaResult] = await Promise.all([
@@ -335,6 +350,37 @@ export const processMessage = inngest.createFunction(
     }
 
     // ──────────────────────────────────────────────
+    // Stage 4.5 — Design skill selection + injection
+    // ──────────────────────────────────────────────
+
+    if (isUIGenerationRequest(workingMessage)) {
+      const skillType = await step.run("select-design-skill", async () => {
+        const result = await generateText({
+          model: createVercelAIModel("skill-router"),
+          prompt: `${SKILL_ROUTER_PROMPT} ${workingMessage}`,
+        });
+        try {
+          const parsed = JSON.parse(result.text.trim()) as { skill: DesignSkillType };
+          return parsed.skill;
+        } catch {
+          return "taste" as DesignSkillType;
+        }
+      });
+
+      if (skillType !== "none") {
+        const designGuidelines = await step.run("fetch-design-skill", async () => {
+          return skillType === "minimalist"
+            ? await fetchMinimalistGuidelines()
+            : await fetchDesignGuidelines();
+        });
+
+        if (designGuidelines) {
+          systemPrompt += `\n\n<design_guidelines skill="${skillType}">\n${designGuidelines}\n</design_guidelines>`;
+        }
+      }
+    }
+
+    // ──────────────────────────────────────────────
     // Stage 5 — Manager builds (coding agent network)
     // ──────────────────────────────────────────────
 
@@ -373,7 +419,7 @@ export const processMessage = inngest.createFunction(
       },
     });
 
-    let fullMessage = message;
+    let fullMessage = workingMessage;
     if (imageUrls && imageUrls.length > 0) {
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls
         .map((url, i) => `${i + 1}. ${url}`)
@@ -421,7 +467,7 @@ export const processMessage = inngest.createFunction(
             messageId: messageId as string,
             projectId: projectId as string,
             conversationId: conversationId as string,
-            userMessage: message,
+            userMessage: workingMessage,
             implementationSummary: assistantResponse!,
           },
           internalKey

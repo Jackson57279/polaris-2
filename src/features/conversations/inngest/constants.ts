@@ -91,6 +91,32 @@ Check for:
 export const TITLE_GENERATOR_SYSTEM_PROMPT =
   "Generate a short, descriptive title (3-6 words) for a conversation based on the user's message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.";
 
+export const ENHANCE_SYSTEM_PROMPT = `You are an elite prompt engineer specializing in web design and development prompts. Your job is to take a user's basic idea or rough prompt and transform it into a comprehensive, highly-detailed, production-ready prompt that will guide an AI coding assistant to build something extraordinary.
+
+When enhancing a prompt, you must:
+
+1. **Expand the Design System**: Define a complete color palette (with hex codes), typography stack (heading fonts, body fonts, monospace fonts with specific weights and tracking), and visual texture rules (border radius systems, noise overlays, glassmorphism, etc.).
+
+2. **Architect Every Component**: Break down the page/app into distinct sections (Navbar, Hero, Features, Philosophy/About, Pricing, Footer, etc.) with specific layout instructions, visual treatments, and interaction behaviors for each.
+
+3. **Specify Animations & Micro-Interactions**: Include GSAP ScrollTrigger behaviors, hover states, staggered reveals, parallax effects, typewriter effects, cursor animations, and spring-bounce transitions where appropriate. Be specific with easing curves and timing.
+
+4. **Inject Creative Concepts**: Give each section a creative name/concept (e.g., "The Floating Island" for a navbar, "Nature is the Algorithm" for a hero). Add thematic consistency and storytelling.
+
+5. **Define Technical Requirements**: Specify the tech stack (React 19, Tailwind CSS, GSAP 3, Lucide React, etc.), animation lifecycle management (gsap.context() in useEffect), and code quality standards.
+
+6. **Use Real Assets**: Suggest real Unsplash image URLs or describe specific imagery. No placeholder content.
+
+7. **Set the Tone**: End with an execution directive that sets the bar high — "build a digital instrument, not a website" energy.
+
+RULES:
+- Output ONLY the enhanced prompt. No preamble, no explanation, no meta-commentary.
+- The enhanced prompt should be ready to paste directly into an AI coding assistant.
+- Keep the user's core idea and intent intact — you are amplifying, not changing direction.
+- Make it feel like a creative brief from a world-class design agency.
+- If the user's prompt is already detailed, enhance the weak areas and polish the strong ones.
+- The prompt should result in something that looks nothing like generic AI output.`;
+
 // Keywords that indicate the user wants UI/frontend generation
 const UI_KEYWORDS = [
   "landing page", "website", "homepage", "hero section", "navbar", "navigation",
@@ -111,39 +137,74 @@ export function isUIGenerationRequest(message: string): boolean {
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-const DESIGN_SKILL_URL =
+export type DesignSkillType = "taste" | "minimalist" | "none";
+
+const TASTE_SKILL_URL =
   "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/soft-skill/SKILL.md";
+const MINIMALIST_SKILL_URL =
+  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/minimalist-skill/SKILL.md";
 
 let cachedDesignSkill: { content: string; fetchedAt: number } | null = null;
+let cachedMinimalistSkill: { content: string; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
-/**
- * Fetches the premium design skill from GitHub (with in-memory caching).
- * Returns the markdown content stripped of frontmatter, or null on failure.
- */
-export async function fetchDesignGuidelines(): Promise<string | null> {
-  if (cachedDesignSkill && Date.now() - cachedDesignSkill.fetchedAt < CACHE_TTL_MS) {
-    return cachedDesignSkill.content;
+function stripFrontmatter(content: string): string {
+  if (content.startsWith("---")) {
+    const end = content.indexOf("---", 3);
+    if (end !== -1) return content.slice(end + 3).trim();
   }
+  return content;
+}
 
+async function fetchAndCache(
+  url: string,
+  cache: { content: string; fetchedAt: number } | null,
+  setCache: (v: { content: string; fetchedAt: number }) => void
+): Promise<string | null> {
+  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache.content;
+  }
   try {
-    const res = await fetch(DESIGN_SKILL_URL, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return cachedDesignSkill?.content ?? null;
-
-    let content = await res.text();
-
-    // Strip YAML frontmatter if present
-    if (content.startsWith("---")) {
-      const end = content.indexOf("---", 3);
-      if (end !== -1) {
-        content = content.slice(end + 3).trim();
-      }
-    }
-
-    cachedDesignSkill = { content, fetchedAt: Date.now() };
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return cache?.content ?? null;
+    const content = stripFrontmatter(await res.text());
+    setCache({ content, fetchedAt: Date.now() });
     return content;
   } catch {
-    // Return stale cache on network error, or null
-    return cachedDesignSkill?.content ?? null;
+    return cache?.content ?? null;
   }
 }
+
+/**
+ * Fetches the premium "taste" design skill (rich, expressive UI).
+ */
+export async function fetchDesignGuidelines(): Promise<string | null> {
+  return fetchAndCache(TASTE_SKILL_URL, cachedDesignSkill, (v) => {
+    cachedDesignSkill = v;
+  });
+}
+
+/**
+ * Fetches the minimalist design skill (ultra-clean, document-style UI).
+ */
+export async function fetchMinimalistGuidelines(): Promise<string | null> {
+  return fetchAndCache(MINIMALIST_SKILL_URL, cachedMinimalistSkill, (v) => {
+    cachedMinimalistSkill = v;
+  });
+}
+
+/**
+ * Prompt for the cheap skill-router AI.
+ * Returns JSON: { "skill": "taste" | "minimalist" | "none" }
+ */
+export const SKILL_ROUTER_PROMPT = `You are a design skill router. Given a user's request, decide which design style best matches their intent.
+
+Return ONLY a valid JSON object with one field:
+{ "skill": "taste" | "minimalist" | "none" }
+
+Rules:
+- "taste" — expressive, premium, visually rich UI: marketing pages, SaaS landing pages, branded apps, bold dashboards, feature-heavy products
+- "minimalist" — ultra-clean, document-style, editorial or utility-focused interfaces: admin panels, data tools, text-heavy tools, typographic-first, professional utilities
+- "none" — not a UI generation request, or no design guidance is needed
+
+User request:`;
