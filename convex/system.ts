@@ -134,6 +134,28 @@ export const updateMessageStatus = mutation({
   },
 });
 
+export const appendToolCall = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    toolName: v.string(),
+    label: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error(`Message ${args.messageId} not found`);
+    }
+
+    const existingToolCalls = message.toolCalls ?? [];
+    await ctx.db.patch(args.messageId, {
+      toolCalls: [...existingToolCalls, { toolName: args.toolName, label: args.label }],
+    });
+  },
+});
+
 export const getProcessingMessages = query({
   args: {
     internalKey: v.string(),

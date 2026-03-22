@@ -8,6 +8,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 
 interface UpdateFileToolOptions {
   internalKey: string;
+  messageId: Id<"messages">;
 }
 
 const paramsSchema = z.object({
@@ -17,6 +18,7 @@ const paramsSchema = z.object({
 
 export const createUpdateFileTool = ({
   internalKey,
+  messageId,
 }: UpdateFileToolOptions) => {
   return createTool({
     name: "updateFile",
@@ -33,12 +35,10 @@ export const createUpdateFileTool = ({
 
       const { fileId, content } = parsed.data;
 
-      // Validate file exists before running the step
       const file = await convex.query(api.system.getFileById, {
         internalKey,
         fileId: fileId as Id<"files">,
       });
-
 
       if (!file) {
         return `Error: File with ID "${fileId}" not found. Use listFiles to get valid file IDs.`;
@@ -55,6 +55,13 @@ export const createUpdateFileTool = ({
             fileId: fileId as Id<"files">,
             content,
           });
+
+          await convex.mutation(api.system.appendToolCall, {
+            internalKey,
+            messageId,
+            toolName: "updateFile",
+            label: `Edit ${file.name}`,
+          }).catch(() => {});
 
           return `File "${file.name}" updated successfully`;
         })

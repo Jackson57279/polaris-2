@@ -9,11 +9,13 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 interface ListFilesToolOptions {
   projectId: Id<"projects">;
   internalKey: string;
+  messageId: Id<"messages">;
 }
 
 export const createListFilesTool = ({
   projectId,
   internalKey,
+  messageId,
 }: ListFilesToolOptions) => {
   return createTool({
     name: "listFiles",
@@ -28,7 +30,6 @@ export const createListFilesTool = ({
             projectId,
           });
 
-          // Sort: folders first, then files, alphabetically
           const sorted = files.sort((a, b) => {
             if (a.type !== b.type) {
               return a.type === "folder" ? -1 : 1;
@@ -42,6 +43,13 @@ export const createListFilesTool = ({
             type: f.type,
             parentId: f.parentId ?? null,
           }));
+
+          await convex.mutation(api.system.appendToolCall, {
+            internalKey,
+            messageId,
+            toolName: "listFiles",
+            label: "List files",
+          }).catch(() => {});
 
           return JSON.stringify(fileList);
         })

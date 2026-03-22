@@ -9,6 +9,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 interface CreateFilesToolOptions {
   projectId: Id<"projects">;
   internalKey: string;
+  messageId: Id<"messages">;
 }
 
 const paramsSchema = z.object({
@@ -26,6 +27,7 @@ const paramsSchema = z.object({
 export const createCreateFilesTool = ({
   projectId,
   internalKey,
+  messageId,
 }: CreateFilesToolOptions) => {
   return createTool({
     name: "createFiles",
@@ -184,6 +186,15 @@ export const createCreateFilesTool = ({
           }
           if (totalFailed > 0) {
             response += `. Failed: ${failedNames.join(", ")}`;
+          }
+
+          if (createdNames.length > 0) {
+            await convex.mutation(api.system.appendToolCall, {
+              internalKey,
+              messageId,
+              toolName: "createFiles",
+              label: `Create ${createdNames.join(", ")}`,
+            }).catch(() => {});
           }
 
           return response;

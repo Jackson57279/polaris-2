@@ -8,6 +8,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 
 interface DeleteFilesToolOptions {
   internalKey: string;
+  messageId: Id<"messages">;
 }
 
 const paramsSchema = z.object({
@@ -18,6 +19,7 @@ const paramsSchema = z.object({
 
 export const createDeleteFilesTool = ({
   internalKey,
+  messageId,
 }: DeleteFilesToolOptions) => {
   return createTool({
     name: "deleteFiles",
@@ -36,7 +38,6 @@ export const createDeleteFilesTool = ({
 
       const { fileIds } = parsed.data;
 
-      // Validate all files exist before running the step
       const filesToDelete: { 
         id: string; 
         name: string; 
@@ -72,6 +73,14 @@ export const createDeleteFilesTool = ({
 
             results.push(`Deleted ${file.type} "${file.name}" successfully`);
           }
+
+          const deletedNames = filesToDelete.map(f => f.name);
+          await convex.mutation(api.system.appendToolCall, {
+            internalKey,
+            messageId,
+            toolName: "deleteFiles",
+            label: `Delete ${deletedNames.join(", ")}`,
+          }).catch(() => {});
 
           return results.join("\n");
         });

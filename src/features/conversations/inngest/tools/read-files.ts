@@ -8,6 +8,7 @@ import { Id } from "../../../../../convex/_generated/dataModel";
 
 interface ReadFilesToolOptions {
   internalKey: string;
+  messageId: Id<"messages">;
 }
 
 const paramsSchema = z.object({
@@ -16,7 +17,7 @@ const paramsSchema = z.object({
     .min(1, "Provide at least one file ID"),
 });
 
-export const createReadFilesTool = ({ internalKey }: ReadFilesToolOptions) => {
+export const createReadFilesTool = ({ internalKey, messageId }: ReadFilesToolOptions) => {
   return createTool({
     name: "readFiles",
     description: "Read the content of files from the project. Returns file contents.",
@@ -53,6 +54,14 @@ export const createReadFilesTool = ({ internalKey }: ReadFilesToolOptions) => {
           if (results.length === 0) {
             return "Error: No files found with provided IDs. Use listFiles to get valid fileIDs.";
           }
+
+          const fileNames = results.map(r => r.name);
+          await convex.mutation(api.system.appendToolCall, {
+            internalKey,
+            messageId,
+            toolName: "readFiles",
+            label: `Read ${fileNames.join(", ")}`,
+          }).catch(() => {});
 
           return JSON.stringify(results);
         })
