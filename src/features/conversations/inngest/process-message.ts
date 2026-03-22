@@ -20,6 +20,7 @@ import {
   isUIGenerationRequest,
   fetchDesignGuidelines,
   fetchMinimalistGuidelines,
+  fetchTasteAdvancedGuidelines,
   type DesignSkillType,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -410,9 +411,13 @@ export const processMessage = inngest.createFunction(
 
       if (skillType !== "none") {
         const designGuidelines = await step.run("fetch-design-skill", async () => {
-          return skillType === "minimalist"
-            ? await fetchMinimalistGuidelines()
-            : await fetchDesignGuidelines();
+          if (skillType === "minimalist") {
+            return await fetchMinimalistGuidelines();
+          } else if (skillType === "taste-advanced") {
+            return await fetchTasteAdvancedGuidelines();
+          } else {
+            return await fetchDesignGuidelines();
+          }
         });
 
         if (designGuidelines) {
