@@ -1,13 +1,18 @@
 import ky from "ky";
 import { toast } from "sonner";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   CopyIcon,
+  FilePlusIcon,
+  FolderPlusIcon,
+  GlobeIcon,
   HistoryIcon,
   ImageIcon,
   LoaderIcon,
+  PencilIcon,
   PlusIcon,
   SparklesIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 import {
@@ -49,6 +54,28 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
 import { useUploadThing } from "@/lib/uploadthing";
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  updateFile: <PencilIcon className="size-3" />,
+  createFiles: <FilePlusIcon className="size-3" />,
+  createFolder: <FolderPlusIcon className="size-3" />,
+  renameFile: <PencilIcon className="size-3" />,
+  deleteFiles: <Trash2Icon className="size-3" />,
+  scrapeUrls: <GlobeIcon className="size-3" />,
+};
+
+function ToolCallChip({ toolName, label, index }: { toolName: string; label: string; index: number }) {
+  const icon = TOOL_ICONS[toolName] ?? <PencilIcon className="size-3" />;
+  return (
+    <span
+      className="tool-call-chip inline-flex items-center gap-1 rounded-full border border-border/50 bg-muted/60 px-2 py-0.5 font-mono text-[11px] text-muted-foreground"
+      style={{ animationDelay: `${index * 80}ms` }}
+    >
+      {icon}
+      {label}
+    </span>
+  );
+}
 
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
@@ -297,7 +324,16 @@ export const ConversationSidebar = ({
                       Request cancelled
                     </span>
                   ) : (
-                    <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
+                    <>
+                      {message.toolCalls && message.toolCalls.length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-1">
+                          {message.toolCalls.map((tc, i) => (
+                            <ToolCallChip key={i} index={i} toolName={tc.toolName} label={tc.label} />
+                          ))}
+                        </div>
+                      )}
+                      <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
+                    </>
                   )}
                 </MessageContent>
                 {message.role === "assistant" &&

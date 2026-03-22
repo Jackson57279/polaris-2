@@ -1,5 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "@fontsource/ibm-plex-mono/700.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -44,6 +53,8 @@
 }
 
 :root {
+  --font-inter: 'Inter Variable', 'Inter', sans-serif;
+  --font-plex-mono: 'IBM Plex Mono', monospace;
   --radius: 0.475rem;
   --background: oklch(0.2925 0.0157 264.3);
   --foreground: oklch(0.145 0 0);
@@ -157,4 +168,28 @@
 
 ::-webkit-scrollbar-thumb {
   @apply rounded-full bg-border border-[1px] border-transparent border-solid bg-clip-padding;
+}
+
+@keyframes tool-call-appear {
+  0% {
+    opacity: 0;
+    background-color: oklch(0.7 0.15 280 / 0.25);
+    border-color: oklch(0.7 0.15 280 / 0.5);
+    transform: scale(0.95);
+  }
+  40% {
+    background-color: oklch(0.7 0.15 280 / 0.2);
+    border-color: oklch(0.7 0.15 280 / 0.4);
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    background-color: transparent;
+    border-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.tool-call-chip {
+  animation: tool-call-appear 0.7s ease-out both;
 }

@@ -20,6 +20,7 @@ import {
   isUIGenerationRequest,
   fetchDesignGuidelines,
   fetchMinimalistGuidelines,
+  fetchTasteAdvancedGuidelines,
   type DesignSkillType,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -47,6 +48,47 @@ interface MessageEvent {
   message: string;
   imageUrls?: string[];
 }
+
+const getToolLabel = (
+  name: string,
+  input: Record<string, unknown>,
+  result: unknown
+): string | null => {
+  const resultStr = typeof result === "string" ? result : "";
+  if (resultStr.startsWith("Error")) return null;
+
+  switch (name) {
+    case "updateFile": {
+      const match = resultStr.match(/^File "(.+)" updated successfully/);
+      return match ? `Edit ${match[1]}` : "Edit file";
+    }
+    case "createFiles": {
+      const files = (input.files as Array<{ name: string }>) ?? [];
+      const names = files.map((f) => f.name).join(", ");
+      return names ? `Create ${names}` : "Create files";
+    }
+    case "createFolder": {
+      const folderName = (input.name as string) ?? "folder";
+      return `Create folder ${folderName}`;
+    }
+    case "renameFile": {
+      const match = resultStr.match(/^Renamed "(.+)" to "(.+)" successfully/);
+      return match ? `Rename ${match[1]} → ${match[2]}` : "Rename file";
+    }
+    case "deleteFiles": {
+      const names = [
+        ...resultStr.matchAll(/Deleted (?:file|folder) "(.+)" successfully/g),
+      ].map((m) => m[1]);
+      return names.length > 0 ? `Delete ${names.join(", ")}` : "Delete files";
+    }
+    case "scrapeUrls": {
+      const urls = (input.urls as string[]) ?? [];
+      return `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`;
+    }
+    default:
+      return null;
+  }
+};
 
 const extractAssistantText = (messages: Message[]): string | null => {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -369,9 +411,13 @@ export const processMessage = inngest.createFunction(
 
       if (skillType !== "none") {
         const designGuidelines = await step.run("fetch-design-skill", async () => {
-          return skillType === "minimalist"
-            ? await fetchMinimalistGuidelines()
-            : await fetchDesignGuidelines();
+          if (skillType === "minimalist") {
+            return await fetchMinimalistGuidelines();
+          } else if (skillType === "taste-advanced") {
+            return await fetchTasteAdvancedGuidelines();
+          } else {
+            return await fetchDesignGuidelines();
+          }
         });
 
         if (designGuidelines) {
@@ -484,11 +530,22 @@ export const processMessage = inngest.createFunction(
     // Stage 7 — Finalize
     // ──────────────────────────────────────────────
 
+    const toolCallRecords: Array<{ toolName: string; label: string }> = [];
+    for (const result of agentResults) {
+      for (const tc of result.toolCalls) {
+        const label = getToolLabel(tc.tool.name, tc.tool.input ?? {}, tc.content);
+        if (label) {
+          toolCallRecords.push({ toolName: tc.tool.name, label });
+        }
+      }
+    }
+
     await step.run("update-assistant-message", async () => {
       await convex.mutation(api.system.updateMessageContent, {
         internalKey,
         messageId,
         content: assistantResponse!,
+        toolCalls: toolCallRecords.length > 0 ? toolCallRecords : undefined,
       });
     });
 

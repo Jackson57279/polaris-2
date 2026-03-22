@@ -137,15 +137,18 @@ export function isUIGenerationRequest(message: string): boolean {
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-export type DesignSkillType = "taste" | "minimalist" | "none";
+export type DesignSkillType = "taste" | "minimalist" | "taste-advanced" | "none";
 
 const TASTE_SKILL_URL =
-  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/soft-skill/SKILL.md";
+  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md";
 const MINIMALIST_SKILL_URL =
   "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/minimalist-skill/SKILL.md";
+const TASTE_ADVANCED_SKILL_URL =
+  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/taste-skill/SKILL.md";
 
 let cachedDesignSkill: { content: string; fetchedAt: number } | null = null;
 let cachedMinimalistSkill: { content: string; fetchedAt: number } | null = null;
+let cachedTasteAdvancedSkill: { content: string; fetchedAt: number } | null = null;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function stripFrontmatter(content: string): string {
@@ -194,17 +197,23 @@ export async function fetchMinimalistGuidelines(): Promise<string | null> {
 }
 
 /**
- * Prompt for the cheap skill-router AI.
- * Returns JSON: { "skill": "taste" | "minimalist" | "none" }
+ * Fetches the advanced taste design skill (high-agency frontend, creative arsenal).
  */
+export async function fetchTasteAdvancedGuidelines(): Promise<string | null> {
+  return fetchAndCache(TASTE_ADVANCED_SKILL_URL, cachedTasteAdvancedSkill, (v) => {
+    cachedTasteAdvancedSkill = v;
+  });
+}
+
 export const SKILL_ROUTER_PROMPT = `You are a design skill router. Given a user's request, decide which design style best matches their intent.
 
 Return ONLY a valid JSON object with one field:
-{ "skill": "taste" | "minimalist" | "none" }
+{ "skill": "taste" | "minimalist" | "taste-advanced" | "none" }
 
 Rules:
-- "taste" — expressive, premium, visually rich UI: marketing pages, SaaS landing pages, branded apps, bold dashboards, feature-heavy products
-- "minimalist" — ultra-clean, document-style, editorial or utility-focused interfaces: admin panels, data tools, text-heavy tools, typographic-first, professional utilities
+- "taste" — expressive, premium, visually rich UI: marketing pages, SaaS landing pages, branded apps, bold dashboards
+- "minimalist" — ultra-clean, document-style, editorial or utility-focused interfaces: admin panels, data tools, text-heavy tools, typographic-first
+- "taste-advanced" — high-agency creative interfaces with complex animations, bento grids, perpetual motion, 3D effects, scroll-triggered reveals, highly interactive dashboards
 - "none" — not a UI generation request, or no design guidance is needed
 
 User request:`;

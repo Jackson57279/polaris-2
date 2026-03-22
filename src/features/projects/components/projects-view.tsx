@@ -1,6 +1,5 @@
 "use client";
 
-import { Poppins } from "next/font/google";
 import { SettingsIcon, SparkleIcon } from "lucide-react";
 import { FaGithub, FaFigma } from "react-icons/fa";
 import { useEffect, useState } from "react";
@@ -16,10 +15,6 @@ import { ImportGithubDialog } from "./import-github-dialog";
 import { ImportFigmaDialog } from "./import-figma-dialog";
 import { NewProjectDialog } from "./new-project-dialog";
 
-const font = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-})
 
 export const ProjectsView = () => {
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
@@ -80,7 +75,7 @@ export const ProjectsView = () => {
               <img src="/logo.svg" alt="LuminaWeb" className="size-[32px] md:size-[46px]" />
               <h1 className={cn(
                 "text-4xl md:text-5xl font-semibold",
-                font.className,
+                "[font-family:'Poppins',sans-serif]",
               )}>
                 LuminaWeb
               </h1>
