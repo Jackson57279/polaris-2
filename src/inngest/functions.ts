@@ -2,12 +2,15 @@ import { generateText } from "ai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { inngest } from "./client";
 import { firecrawl } from "@/lib/firecrawl";
+import { validateBuild } from "@/features/conversations/inngest/validate-build";
 
 const openrouter = createOpenAICompatible({
   name: 'openrouter',
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
 });
+
+export { validateBuild };
 
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 

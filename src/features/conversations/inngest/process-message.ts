@@ -520,7 +520,8 @@ export const processMessage = inngest.createFunction(
         reviewResult.quality === "critical_issues" &&
         reviewResult.issues.length > 0
       ) {
-        assistantResponse += `\n\n---\n**Review Notes:**\n${reviewResult.issues
+        assistantResponse += `\n\n---\n**Review Notes:**
+${reviewResult.issues
           .map((issue) => `- ${issue}`)
           .join("\n")}`;
       }
@@ -538,6 +539,26 @@ export const processMessage = inngest.createFunction(
           toolCallRecords.push({ toolName: tc.tool.name, label });
         }
       }
+    }
+
+    const hasFileChanges = toolCallRecords.some(
+      (tc) =>
+        tc.toolName === "createFiles" ||
+        tc.toolName === "updateFile" ||
+        tc.toolName === "renameFile"
+    );
+
+    if (hasFileChanges) {
+      await step.run("trigger-build-validation", async () => {
+        await inngest.send({
+          name: "build/validate",
+          data: {
+            messageId,
+            projectId,
+            conversationId,
+          },
+        });
+      });
     }
 
     await step.run("update-assistant-message", async () => {

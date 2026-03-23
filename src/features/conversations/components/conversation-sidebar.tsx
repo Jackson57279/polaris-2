@@ -49,11 +49,13 @@ import {
   useCreateConversation,
   useMessages,
 } from "../hooks/use-conversations";
+import { useBuildValidation } from "../hooks/use-build-validation";
 
 import { Id } from "../../../../convex/_generated/dataModel";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
 import { useUploadThing } from "@/lib/uploadthing";
+import { BuildStatusBadge } from "./build-status-badge";
 
 const TOOL_ICONS: Record<string, React.ReactNode> = {
   updateFile: <PencilIcon className="size-3" />,
@@ -74,6 +76,74 @@ function ToolCallChip({ toolName, label, index }: { toolName: string; label: str
       {icon}
       {label}
     </span>
+  );
+}
+
+interface MessageWithBuildStatusProps {
+  message: {
+    _id: Id<"messages">;
+    role: "user" | "assistant";
+    status?: "processing" | "completed" | "cancelled";
+    content: string;
+    toolCalls?: Array<{ toolName: string; label: string }>;
+  };
+  messageIndex: number;
+  totalMessages: number;
+}
+
+function MessageWithBuildStatus({ message, messageIndex, totalMessages }: MessageWithBuildStatusProps) {
+  const buildValidation = useBuildValidation(
+    message.role === "assistant" && message.status === "completed" ? message._id : undefined
+  );
+
+  const isLastMessage = messageIndex === totalMessages - 1;
+
+  return (
+    <Message from={message.role}>
+      <MessageContent>
+        {message.status === "processing" ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <LoaderIcon className="size-4 animate-spin" />
+            <span>Thinking...</span>
+          </div>
+        ) : message.status === "cancelled" ? (
+          <span className="text-muted-foreground italic">
+            Request cancelled
+          </span>
+        ) : (
+          <>
+            {message.toolCalls && message.toolCalls.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                {message.toolCalls.map((tc, i) => (
+                  <ToolCallChip key={i} index={i} toolName={tc.toolName} label={tc.label} />
+                ))}
+              </div>
+            )}
+            <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
+            {message.role === "assistant" && buildValidation && (
+              <div className="mt-3">
+                <BuildStatusBadge buildValidation={buildValidation} />
+              </div>
+            )}
+          </>
+        )}
+      </MessageContent>
+      {message.role === "assistant" &&
+        message.status === "completed" &&
+        isLastMessage && (
+          <MessageActions>
+            <MessageAction
+              onClick={() => {
+                navigator.clipboard.writeText(message.content)
+              }}
+              label="Copy"
+            >
+              <CopyIcon className="size-3" />
+            </MessageAction>
+          </MessageActions>
+        )
+      }
+    </Message>
   );
 }
 
@@ -309,49 +379,12 @@ export const ConversationSidebar = ({
             )}
             {/* Reverse the array for display if we ordered them by desc to paginate correctly */}
             {conversationMessages.slice().reverse().map((message, messageIndex) => (
-              <Message
+              <MessageWithBuildStatus
                 key={message._id}
-                from={message.role}
-              >
-                <MessageContent>
-                  {message.status === "processing" ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <LoaderIcon className="size-4 animate-spin" />
-                      <span>Thinking...</span>
-                    </div>
-                  ) : message.status === "cancelled" ? (
-                    <span className="text-muted-foreground italic">
-                      Request cancelled
-                    </span>
-                  ) : (
-                    <>
-                      {message.toolCalls && message.toolCalls.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-1">
-                          {message.toolCalls.map((tc, i) => (
-                            <ToolCallChip key={i} index={i} toolName={tc.toolName} label={tc.label} />
-                          ))}
-                        </div>
-                      )}
-                      <MessageResponse key={message._id}>{message.content || "No response content"}</MessageResponse>
-                    </>
-                  )}
-                </MessageContent>
-                {message.role === "assistant" &&
-                  message.status === "completed" &&
-                  messageIndex === conversationMessages.length - 1 && (
-                    <MessageActions>
-                      <MessageAction
-                        onClick={() => {
-                          navigator.clipboard.writeText(message.content)
-                        }}
-                        label="Copy"
-                      >
-                        <CopyIcon className="size-3" />
-                      </MessageAction>
-                    </MessageActions>
-                  )
-                }
-              </Message>
+                message={message}
+                messageIndex={messageIndex}
+                totalMessages={conversationMessages.length}
+              />
             ))}
           </ConversationContent>
           <ConversationScrollButton />

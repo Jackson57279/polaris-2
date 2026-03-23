@@ -183,6 +183,28 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_message_worker", ["messageId", "workerType"]),
 
+  build_validations: defineTable({
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("passed"),
+      v.literal("failed"),
+      v.literal("skipped"),
+    ),
+    command: v.optional(v.string()),
+    exitCode: v.optional(v.number()),
+    output: v.optional(v.string()),
+    errorOutput: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_project", ["projectId"]),
+
   api_keys: defineTable({
     keyHash: v.string(),
     clerkUserId: v.string(),

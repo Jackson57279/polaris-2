@@ -818,6 +818,104 @@ export const getRunArtifacts = query({
   },
 });
 
+export const getBuildValidation = query({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    return await ctx.db
+      .query("build_validations")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+  },
+});
+
+export const getBuildValidationsByProject = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    return await ctx.db
+      .query("build_validations")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .take(10);
+  },
+});
+
+export const createBuildValidation = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    command: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const existing = await ctx.db
+      .query("build_validations")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+
+    if (existing) {
+      return existing._id;
+    }
+
+    return await ctx.db.insert("build_validations", {
+      messageId: args.messageId,
+      projectId: args.projectId,
+      status: "pending",
+      command: args.command,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const updateBuildValidationStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    buildValidationId: v.id("build_validations"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("passed"),
+      v.literal("failed"),
+      v.literal("skipped")
+    ),
+    exitCode: v.optional(v.number()),
+    output: v.optional(v.string()),
+    errorOutput: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const update: Record<string, unknown> = {
+      status: args.status,
+    };
+
+    if (args.exitCode !== undefined) update.exitCode = args.exitCode;
+    if (args.output !== undefined) update.output = args.output;
+    if (args.errorOutput !== undefined) update.errorOutput = args.errorOutput;
+    if (args.durationMs !== undefined) update.durationMs = args.durationMs;
+
+    if (args.status === "running") {
+      update.startedAt = Date.now();
+    } else if (args.status === "passed" || args.status === "failed" || args.status === "skipped") {
+      update.completedAt = Date.now();
+    }
+
+    await ctx.db.patch(args.buildValidationId, update);
+  },
+});
+
 export const createProjectWithConversation = mutation({
   args: {
     internalKey: v.string(),
