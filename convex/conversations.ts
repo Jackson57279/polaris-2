@@ -85,6 +85,59 @@ export const getByProject = query({
 
 import { paginationOptsValidator } from "convex/server";
 
+export const getBuildValidation = query({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await verifyAuth(ctx);
+
+    const message = await ctx.db.get("messages", args.messageId);
+    if (!message) {
+      return null;
+    }
+
+    const conversation = await ctx.db.get("conversations", message.conversationId);
+    if (!conversation) {
+      return null;
+    }
+
+    const project = await ctx.db.get("projects", conversation.projectId);
+    if (!project || project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized to access this project");
+    }
+
+    return await ctx.db
+      .query("build_validations")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+  },
+});
+
+export const getBuildValidationsByProject = query({
+  args: {
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await verifyAuth(ctx);
+
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) {
+      throw new Error("Project not found");
+    }
+
+    if (project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized to access this project");
+    }
+
+    return await ctx.db
+      .query("build_validations")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .order("desc")
+      .take(10);
+  },
+});
+
 export const getMessages = query({
   args: {
     conversationId: v.id("conversations"),

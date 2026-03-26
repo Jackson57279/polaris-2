@@ -4,14 +4,14 @@ import { Id } from "../../../../convex/_generated/dataModel";
 
 export const useBuildValidation = (messageId: Id<"messages"> | undefined) => {
   return useQuery(
-    api.system.getBuildValidation,
-    messageId ? { messageId, internalKey: "client" } : "skip"
+    api.conversations.getBuildValidation,
+    messageId ? { messageId } : "skip"
   );
 };
 
 export const useBuildValidationsByProject = (projectId: Id<"projects"> | undefined) => {
   return useQuery(
-    api.system.getBuildValidationsByProject,
-    projectId ? { projectId, internalKey: "client" } : "skip"
+    api.conversations.getBuildValidationsByProject,
+    projectId ? { projectId } : "skip"
   );
 };
