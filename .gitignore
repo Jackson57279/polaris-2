@@ -51,3 +51,6 @@ next-env.d.ts
 # Posthog 
 posthog-seup-report.md
 .claude
+.mcp.json
+.pi
+.opencode
