@@ -449,3 +449,57 @@ export const MessageToolbar = ({
     {children}
   </div>
 );
+
+// ============================================================================
+// Iteration Mode Components
+// ============================================================================
+
+export type MessageIterationProps = HTMLAttributes<HTMLDivElement> & {
+  iterationData?: {
+    iterations: Array<{
+      iterationNumber: number;
+      code: string;
+      executionResult: string;
+      reasoning?: string;
+      timestamp: number;
+    }>;
+    sandboxId?: string;
+    finalOutput?: string;
+    status: "running" | "completed" | "failed";
+    maxIterations?: number;
+    currentIteration?: number;
+    language?: "javascript" | "typescript" | "python";
+  };
+};
+
+export const MessageIteration = ({
+  className,
+  iterationData,
+  ...props
+}: MessageIterationProps) => {
+  if (!iterationData) {
+    return null;
+  }
+
+  // Dynamically import to avoid loading on every message
+  const IterationDisplay = require("./iteration-display").IterationDisplay;
+
+  return (
+    <div className={cn("mt-4", className)} {...props}>
+      <IterationDisplay
+        data={{
+          iterations: iterationData.iterations.map((i) => ({
+            ...i,
+            executionResult: JSON.parse(i.executionResult),
+          })),
+          sandboxId: iterationData.sandboxId,
+          finalOutput: iterationData.finalOutput,
+          status: iterationData.status,
+          maxIterations: iterationData.maxIterations,
+          currentIteration: iterationData.currentIteration,
+          language: iterationData.language,
+        }}
+      />
+    </div>
+  );
+};

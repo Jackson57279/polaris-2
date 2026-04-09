@@ -2,6 +2,7 @@ import { serve } from "inngest/next";
 
 import { inngest } from "@/inngest/client";
 import { processMessage } from "@/features/conversations/inngest/process-message";
+import { processIteration } from "@/features/conversations/inngest/process-iteration";
 import { importGithubRepo } from "@/features/projects/inngest/import-github-repo";
 import { exportToGithub } from "@/features/projects/inngest/export-to-github";
 import { importFigma } from "@/features/projects/inngest/import-figma";
@@ -16,6 +17,7 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     processMessage,
+    processIteration,
     importGithubRepo,
     exportToGithub,
     importFigma,
