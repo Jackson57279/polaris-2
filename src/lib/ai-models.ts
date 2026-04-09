@@ -10,7 +10,7 @@ const MODEL_DEFAULTS: Record<AgentRole, string> = {
   title: "x-ai/grok-4.1-fast",
   "skill-router": "google/gemini-3.1-flash-lite-preview",
   enhance: "moonshotai/kimi-k2.5:nitro",
-  iteration: "zhipu/glm-5.1",
+  iteration: "z-ai/glm-5.1",
 };
 
 const ENV_KEYS: Record<AgentRole, string> = {
