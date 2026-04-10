@@ -65,7 +65,7 @@ export function IterationDisplay({ data, className }: IterationDisplayProps) {
   );
 
   const { iterations, status, maxIterations = 10, language = "typescript" } = data;
-  const currentIteration = data.currentIteration || iterations.length;
+  const currentIteration = data.currentIteration ?? iterations.length;
 
   return (
     <Card className={cn("border-amber-500/20 bg-amber-500/5", className)}>

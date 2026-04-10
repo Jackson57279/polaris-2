@@ -120,7 +120,7 @@ export function IterationModeToggle({
             />
             {variant === "default" && (
               <span className="hidden sm:inline">
-                {enabled ? "Iteration Mode On" : "I don't care about time"}
+                {enabled ? "Iteration Mode On" : "Iteration Mode Off"}
               </span>
             )}
           </Button>

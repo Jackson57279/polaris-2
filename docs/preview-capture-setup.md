@@ -15,7 +15,7 @@ For Railway and other containerized platforms, we recommend using **Browserless.
 1. Sign up at [browserless.io](https://www.browserless.io/)
 2. Get your API token from the dashboard
 3. Add the environment variable to Railway:
-   ```
+   ```bash
    BROWSERLESS_TOKEN=your_token_here
    ```
 
@@ -28,7 +28,7 @@ If you prefer not to use Browserless, you can use a screenshot API service:
 1. Sign up at [screenshotapi.net](https://screenshotapi.net/) or similar
 2. Get your API key
 3. Add the environment variable:
-   ```
+   ```bash
    SCREENSHOT_API_KEY=your_key_here
    ```
 
@@ -37,16 +37,16 @@ If you prefer not to use Browserless, you can use a screenshot API service:
 You can also deploy Browserless yourself on Railway:
 
 1. Create a new service from the Browserless Docker image:
-   ```
+   ```text
    ghcr.io/browserless/chromium:latest
    ```
 2. Set environment variables:
-   ```
+   ```bash
    PORT=3000
    TOKEN=your_secret_token
    ```
 3. Add the internal Railway URL to your main app:
-   ```
+   ```bash
    BROWSERLESS_TOKEN=your_secret_token
    BROWSERLESS_URL=your-browserless-service.railway.app
    ```
@@ -85,7 +85,7 @@ The system will use the first available capture method in this order:
 - Make sure you've set `BROWSERLESS_TOKEN` or `SCREENSHOT_API_KEY`
 - Playwright with full Chromium won't work on Railway without significant configuration
 
-### Screenshots are blank or timeout
+### Screenshots are blank or time out
 - Ensure your preview URL is publicly accessible
 - Check that your deployment is actually running
 - Try increasing the `delayMs` parameter for slower-loading pages

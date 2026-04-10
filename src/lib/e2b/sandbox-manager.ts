@@ -5,6 +5,7 @@
  * Provides getOrCreate, execute, and cleanup functionality.
  */
 
+import path from "path";
 import { Sandbox } from "@e2b/code-interpreter";
 import { E2B_CONFIG, validateE2BConfig } from "./client";
 
@@ -180,9 +181,32 @@ export async function setupProjectFiles(
   sandbox: Sandbox,
   files: Array<{ path: string; content: string }>
 ): Promise<void> {
+  const baseDir = "/home/user";
+
   for (const file of files) {
-    const fullPath = `/home/user/${file.path}`;
-    await sandbox.files.write(fullPath, file.content);
+    // Reject absolute paths
+    if (path.isAbsolute(file.path)) {
+      console.error(`[E2B] Rejecting absolute path: ${file.path}`);
+      throw new Error(`Absolute paths are not allowed: ${file.path}`);
+    }
+
+    // Resolve the path and ensure it stays within baseDir
+    const resolvedPath = path.posix.resolve(baseDir, file.path);
+    const relativeFromBase = path.posix.relative(baseDir, resolvedPath);
+
+    // Check for path traversal (if relative path starts with '..', it's escaping the base)
+    if (relativeFromBase.startsWith("..")) {
+      console.error(`[E2B] Path traversal detected: ${file.path} resolves to ${resolvedPath}`);
+      throw new Error(`Path traversal detected: ${file.path}`);
+    }
+
+    // Ensure the resolved path is within baseDir
+    if (!resolvedPath.startsWith(baseDir + "/") && resolvedPath !== baseDir) {
+      console.error(`[E2B] Invalid path: ${file.path} resolves to ${resolvedPath}`);
+      throw new Error(`Invalid path: ${file.path}`);
+    }
+
+    await sandbox.files.write(resolvedPath, file.content);
   }
 }
 

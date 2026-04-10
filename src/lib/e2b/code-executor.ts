@@ -49,9 +49,10 @@ export async function runIteration(
   code: string,
   language: "javascript" | "typescript" | "python",
   iterationNumber: number,
+  maxIterations: number,
   callbacks?: IterationCallbacks
 ): Promise<IterationResult> {
-  callbacks?.onIterationStart?.(iterationNumber, 10);
+  callbacks?.onIterationStart?.(iterationNumber, maxIterations);
 
   const executionCallbacks: ExecutionCallbacks = {
     onStdout: (data) => {
@@ -93,20 +94,38 @@ export async function runTests(
 ): Promise<ExecutionResult> {
   const startTime = Date.now();
 
-  const result = await runCommand(sandbox, testCommand, callbacks);
+  try {
+    const result = await runCommand(sandbox, testCommand, callbacks);
+    const executionTimeMs = Date.now() - startTime;
 
-  return {
-    stdout: result.stdout,
-    stderr: result.stderr,
-    exitCode: result.exitCode,
-    results: [],
-    error: result.exitCode !== 0 ? {
-      name: "TestError",
-      value: `Tests failed with exit code ${result.exitCode}`,
-      traceback: result.stderr,
-    } : null,
-    executionTimeMs: Date.now() - startTime,
-  };
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      results: [],
+      error: result.exitCode !== 0 ? {
+        name: "TestError",
+        value: `Tests failed with exit code ${result.exitCode}`,
+        traceback: result.stderr,
+      } : null,
+      executionTimeMs,
+    };
+  } catch (error) {
+    const executionTimeMs = Date.now() - startTime;
+
+    return {
+      stdout: "",
+      stderr: error instanceof Error ? error.message : String(error),
+      exitCode: -1,
+      results: [],
+      error: {
+        name: error instanceof Error ? error.name : "TestError",
+        value: error instanceof Error ? error.message : String(error),
+        traceback: error instanceof Error ? error.stack || "" : "",
+      },
+      executionTimeMs,
+    };
+  }
 }
 
 /**

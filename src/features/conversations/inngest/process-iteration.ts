@@ -147,7 +147,7 @@ const parseResponse = (text: string): { code: string; reasoning: string } => {
   return { code, reasoning };
 };
 
-const isSuccess = (reasoning: string): boolean => {
+const isSuccessCheck = (reasoning: string): boolean => {
   return reasoning.toLowerCase().includes("success");
 };
 
@@ -171,6 +171,15 @@ export const processIteration = inngest.createFunction(
 
       if (internalKey) {
         await step.run("cleanup-on-failure", async () => {
+          // Update iteration status to failed
+          await convex.mutation(api.system.updateMessageIterationData, {
+            internalKey,
+            messageId,
+            iterationData: {
+              status: "failed",
+            },
+          });
+
           // Update message with failure status
           await convex.mutation(api.system.updateMessageContent, {
             internalKey,
@@ -211,15 +220,16 @@ export const processIteration = inngest.createFunction(
       throw new NonRetriableError("POLARIS_CONVEX_INTERNAL_KEY is not configured");
     }
 
-    const iterations: IterationData[] = [];
-    let sandbox: Awaited<ReturnType<typeof getOrCreateSandbox>> | null = null;
+    let sandboxId: string = "";
 
     try {
       // ──────────────────────────────────────────────
       // Stage 1: Setup E2B Sandbox
       // ──────────────────────────────────────────────
-      sandbox = await step.run("setup-sandbox", async () => {
-        return await getOrCreateSandbox(conversationId, messageId);
+      sandboxId = await step.run("setup-sandbox", async () => {
+        const sb = await getOrCreateSandbox(conversationId, messageId);
+        const info = await sb.getInfo();
+        return info.sandboxId;
       });
 
       // Store sandbox ID in message
@@ -229,7 +239,7 @@ export const processIteration = inngest.createFunction(
           messageId,
           iterationData: {
             iterations: [],
-            sandboxId: sandbox ? await sandbox.getInfo().then((i) => i.sandboxId) : "",
+            sandboxId: sandboxId,
             status: "running",
             maxIterations,
             currentIteration: 0,
@@ -244,12 +254,19 @@ export const processIteration = inngest.createFunction(
       // ──────────────────────────────────────────────
       let currentCode = "";
       let isComplete = false;
+      let isSuccess = false;
 
       for (let iteration = 1; iteration <= maxIterations; iteration++) {
         // Check if cancelled
         const shouldContinue = await step.run(
           `iteration-${iteration}`,
           async () => {
+            // Reconnect to sandbox inside the step
+            const { Sandbox } = await import("@e2b/code-interpreter");
+            const sandbox = await Sandbox.connect(sandboxId, {
+              apiKey: process.env.E2B_API_KEY!,
+            });
+
             // Update current iteration
             await convex.mutation(api.system.updateMessageIterationData, {
               internalKey,
@@ -269,12 +286,24 @@ export const processIteration = inngest.createFunction(
               code = result.code;
               reasoning = result.reasoning;
             } else {
-              // Refine based on previous execution
+              // Refine based on previous execution - fetch from database
+              const message = await convex.query(api.system.getMessageById, {
+                internalKey,
+                messageId,
+              });
+              const iterationData = message?.iterationData;
+              const iterations = iterationData?.iterations || [];
               const previousIteration = iterations[iterations.length - 1];
+
+              if (!previousIteration) {
+                throw new Error("No previous iteration found");
+              }
+
+              const previousExecutionResult: ExecutionResult = JSON.parse(previousIteration.executionResult || '{}');
               const result = await generateRefinedCode(
                 message,
                 previousIteration.code,
-                previousIteration.executionResult,
+                previousExecutionResult,
                 iteration,
                 language
               );
@@ -285,37 +314,60 @@ export const processIteration = inngest.createFunction(
             currentCode = code;
 
             // Execute code in sandbox
-            const executionResult = await executeCode(sandbox!, code, language);
+            let executionResult = await executeCode(sandbox, code, language);
 
-            // Store iteration data
-            const iterationData: IterationData = {
-              iterationNumber: iteration,
-              code,
-              executionResult,
-              reasoning,
-              timestamp: Date.now(),
-            };
+            // Execute test command if provided
+            if (testCommand && executionResult.exitCode === 0 && !executionResult.error) {
+              const { runCommand } = await import("@/lib/e2b/sandbox-manager");
+              const testStartTime = Date.now();
+              try {
+                const testResult = await runCommand(sandbox, testCommand);
+                const testExecutionTimeMs = Date.now() - testStartTime;
 
-            iterations.push(iterationData);
+                // If tests fail, mark execution as failed
+                if (testResult.exitCode !== 0) {
+                  executionResult = {
+                    ...executionResult,
+                    exitCode: testResult.exitCode,
+                    stderr: testResult.stderr || executionResult.stderr,
+                    error: {
+                      name: "TestError",
+                      value: `Tests failed with exit code ${testResult.exitCode}`,
+                      traceback: testResult.stderr,
+                    },
+                    executionTimeMs: executionResult.executionTimeMs + testExecutionTimeMs,
+                  };
+                }
+              } catch (testError) {
+                const testExecutionTimeMs = Date.now() - testStartTime;
+                executionResult = {
+                  ...executionResult,
+                  exitCode: 1,
+                  error: {
+                    name: testError instanceof Error ? testError.name : "TestError",
+                    value: testError instanceof Error ? testError.message : String(testError),
+                    traceback: testError instanceof Error ? testError.stack || "" : "",
+                  },
+                  executionTimeMs: executionResult.executionTimeMs + testExecutionTimeMs,
+                };
+              }
+            }
 
             // Update message with iteration data
             await convex.mutation(api.system.appendIteration, {
               internalKey,
               messageId,
               iteration: {
-                iterationNumber: iterationData.iterationNumber,
-                code: iterationData.code,
-                executionResult: JSON.stringify(iterationData.executionResult),
-                reasoning: iterationData.reasoning,
-                timestamp: iterationData.timestamp,
+                iterationNumber: iteration,
+                code,
+                executionResult: JSON.stringify(executionResult),
+                reasoning,
+                timestamp: Date.now(),
               },
             });
 
-            // Check if successful
-            const success =
-              executionResult.exitCode === 0 &&
-              !executionResult.error &&
-              isSuccess(reasoning);
+            // Check if successful (based only on execution result, not reasoning)
+            const success = executionResult.exitCode === 0 && !executionResult.error;
 
             if (success) {
               return { success: true, finalCode: code };
@@ -333,12 +385,14 @@ export const processIteration = inngest.createFunction(
         if (shouldContinue?.success) {
           currentCode = shouldContinue.finalCode;
           isComplete = true;
+          isSuccess = true;
           break;
         }
 
         if (shouldContinue?.success === false) {
           currentCode = shouldContinue.finalCode;
           isComplete = true;
+          isSuccess = false;
           break;
         }
       }
@@ -347,6 +401,16 @@ export const processIteration = inngest.createFunction(
       // Stage 3: Finalize
       // ──────────────────────────────────────────────
       await step.run("finalize", async () => {
+        // Fetch iterations from database instead of using in-memory array
+        const message = await convex.query(api.system.getMessageById, {
+          internalKey,
+          messageId,
+        });
+        const iterationData = message?.iterationData;
+        const iterations = iterationData?.iterations || [];
+        const iterationCount = iterations.length;
+        const lastIteration = iterations[iterations.length - 1];
+
         // Generate final summary
         const model = createVercelAIModel("manager");
         const summaryResult = await generateText({
@@ -354,7 +418,7 @@ export const processIteration = inngest.createFunction(
           messages: [
             {
               role: "user",
-              content: `Summarize the iteration process and provide the final working code.\n\nIterations: ${iterations.length}\nFinal code:\n\`\`\`${language}\n${currentCode}\n\`\`\`\n\nProvide a brief summary of what was accomplished and any important notes.`,
+              content: `Summarize the iteration process and provide the final working code.\n\nIterations: ${iterationCount}\nFinal code:\n\`\`\`${language}\n${currentCode}\n\`\`\`\n\nProvide a brief summary of what was accomplished and any important notes.`,
             },
           ],
         });
@@ -367,11 +431,14 @@ export const processIteration = inngest.createFunction(
         });
 
         // Update iteration status to completed
+        const lastExitCode = lastIteration
+          ? JSON.parse(lastIteration.executionResult || '{}').exitCode
+          : null;
         await convex.mutation(api.system.updateMessageIterationData, {
           internalKey,
           messageId,
           iterationData: {
-            status: iterations[iterations.length - 1]?.executionResult.exitCode === 0 ? "completed" : "failed",
+            status: lastExitCode === 0 ? "completed" : "failed",
             finalOutput: currentCode,
           },
         });
@@ -384,8 +451,8 @@ export const processIteration = inngest.createFunction(
       });
 
       return {
-        success: isComplete,
-        iterations: iterations.length,
+        success: isSuccess,
+        iterations: maxIterations,
         messageId,
       };
     } catch (error) {
@@ -393,6 +460,15 @@ export const processIteration = inngest.createFunction(
 
       // Update message with error
       await step.run("handle-error", async () => {
+        // Update iteration status to failed
+        await convex.mutation(api.system.updateMessageIterationData, {
+          internalKey,
+          messageId,
+          iterationData: {
+            status: "failed",
+          },
+        });
+
         await convex.mutation(api.system.updateMessageContent, {
           internalKey,
           messageId,
@@ -409,7 +485,7 @@ export const processIteration = inngest.createFunction(
       throw error;
     } finally {
       // Cleanup sandbox
-      if (sandbox) {
+      if (sandboxId) {
         await step.run("cleanup-sandbox", async () => {
           await cleanupSandbox(conversationId);
         });

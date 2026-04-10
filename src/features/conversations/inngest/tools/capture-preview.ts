@@ -33,7 +33,7 @@ export const createCapturePreviewTool = ({
   return createTool({
     name: "capturePreview",
     description:
-      "Capture a screenshot of the current website preview. Use this when the user asks you to iterate on the design, fix visual issues, or improve the UI based on what you see. The screenshot will help you understand the current visual state and make precise improvements. Returns the captured image URL when complete.",
+      "Initiates a screenshot capture of the current website preview. Use this when the user asks you to iterate on the design, fix visual issues, or improve the UI based on what you see. The screenshot will be processed and made available for analysis. Returns a confirmation that the capture was initiated.",
     parameters: z.object({
       viewport: z
         .object({
@@ -74,28 +74,40 @@ export const createCapturePreviewTool = ({
           return "Error: Failed to create preview capture record";
         }
 
-        // Trigger the screenshot capture via Inngest
-        await inngest.send({
-          name: "preview/capture",
-          data: {
-            previewCaptureId,
+        try {
+          // Trigger the screenshot capture via Inngest
+          await inngest.send({
+            name: "preview/capture",
+            data: {
+              previewCaptureId,
+              messageId,
+              projectId,
+              viewport,
+              waitForNetworkIdle,
+              delayMs,
+            },
+          });
+
+          // Log the tool call
+          await convex.mutation(api.system.appendToolCall, {
+            internalKey,
             messageId,
-            projectId,
-            viewport,
-            waitForNetworkIdle,
-            delayMs,
-          },
-        });
+            toolName: "capturePreview",
+            label: `Capture preview (${viewport.width}x${viewport.height})`,
+          }).catch(() => {});
 
-        // Log the tool call
-        await convex.mutation(api.system.appendToolCall, {
-          internalKey,
-          messageId,
-          toolName: "capturePreview",
-          label: `Capture preview (${viewport.width}x${viewport.height})`,
-        }).catch(() => {});
+          return `Preview capture initiated. The screenshot will be available shortly at viewport ${viewport.width}x${viewport.height}. The image will be analyzed to help with your iteration.`;
+        } catch (innerError) {
+          // Mark the preview capture as failed since we already created the record
+          await convex.mutation(api.system.updatePreviewCaptureStatus, {
+            internalKey,
+            previewCaptureId,
+            status: "failed",
+            error: innerError instanceof Error ? innerError.message : "Unknown error during capture initiation",
+          }).catch(() => {});
 
-        return `Preview capture initiated. The screenshot will be available shortly at viewport ${viewport.width}x${viewport.height}. The image will be analyzed to help with your iteration.`;
+          throw innerError;
+        }
       } catch (error) {
         return `Error capturing preview: ${error instanceof Error ? error.message : "Unknown error"}`;
       }

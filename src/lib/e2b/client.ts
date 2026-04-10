@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * E2B Client Configuration
  *

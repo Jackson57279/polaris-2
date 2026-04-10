@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { E2B_CONFIG } from "@/lib/e2b";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
         iterationData: {
           iterations: [],
           status: "running" as const,
-          maxIterations: 10,
+          maxIterations: E2B_CONFIG.maxIterations,
           currentIteration: 0,
           language,
           testCommand,
@@ -126,7 +127,7 @@ export async function POST(request: Request) {
           projectId,
           message,
           imageUrls,
-          maxIterations: 10,
+          maxIterations: E2B_CONFIG.maxIterations,
           language,
           testCommand,
         },

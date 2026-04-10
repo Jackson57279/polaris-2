@@ -87,8 +87,14 @@ async function captureWithLocalPlaywright(
   waitForNetworkIdle: boolean,
   delayMs: number
 ): Promise<Buffer> {
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH ||
-    (await chromium.executablePath().catch(() => null));
+  let executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  if (!executablePath) {
+    try {
+      executablePath = chromium.executablePath();
+    } catch {
+      executablePath = null;
+    }
+  }
 
   if (!executablePath && !process.env.PLAYWRIGHT_BROWSERS_PATH) {
     throw new Error(
@@ -197,7 +203,8 @@ export const capturePreview = inngest.createFunction(
       throw new Error("POLARIS_CONVEX_INTERNAL_KEY is not configured");
     }
 
-    const startTime = Date.now();
+    // Record start time inside a step so it's memoized
+    const startTime = await step.run("record-start", () => Date.now());
 
     // Mark as running
     await step.run("mark-running", async () => {
@@ -224,41 +231,51 @@ export const capturePreview = inngest.createFunction(
       const browserlessToken = process.env.BROWSERLESS_TOKEN;
       const screenshotApiKey = process.env.SCREENSHOT_API_KEY;
 
-      let screenshotBuffer: Buffer;
+      let screenshotBuffer: string;
 
       if (browserlessToken) {
         // Use Browserless.io (Railway-friendly)
         screenshotBuffer = await step.run("capture-browserless", async () => {
-          return await captureWithBrowserless(
+          const buffer = await captureWithBrowserless(
             previewUrl,
             viewport,
             waitForNetworkIdle,
             delayMs,
             browserlessToken
           );
+          return buffer.toString('base64');
         });
       } else if (screenshotApiKey) {
         // Use external screenshot API
         screenshotBuffer = await step.run("capture-external-api", async () => {
-          return await captureWithExternalAPI(previewUrl, viewport);
+          const buffer = await captureWithExternalAPI(previewUrl, viewport);
+          return buffer.toString('base64');
         });
       } else {
         // Fallback to local Playwright (development only)
         screenshotBuffer = await step.run("capture-local", async () => {
-          return await captureWithLocalPlaywright(
+          const buffer = await captureWithLocalPlaywright(
             previewUrl,
             viewport,
             waitForNetworkIdle,
             delayMs
           );
+          return buffer.toString('base64');
         });
       }
 
       // Upload screenshot to Convex storage
       const { imageStorageId, imageUrl } = await step.run("upload-screenshot", async () => {
+        // Convert base64 string back to Uint8Array for storage
+        const binaryString = atob(screenshotBuffer);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
         const storageId = await convex.action(api.files.storeImage, {
           internalKey,
-          data: Array.from(screenshotBuffer),
+          data: Array.from(bytes),
           contentType: "image/png",
         });
 

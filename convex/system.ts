@@ -1064,8 +1064,7 @@ export const updateE2BSandboxStatus = mutation({
 
     const sandbox = await ctx.db
       .query("e2b_sandboxes")
-      .withIndex("by_conversation", (q) => q)
-      .filter((q) => q.eq(q.field("sandboxId"), args.sandboxId))
+      .withIndex("by_sandbox_id", (q) => q.eq("sandboxId", args.sandboxId))
       .first();
 
     if (sandbox) {

@@ -248,5 +248,23 @@ export default defineSchema({
     lastUsedAt: v.number(),
   })
     .index("by_conversation", ["conversationId"])
-    .index("by_message", ["messageId"]),
+    .index("by_message", ["messageId"])
+    .index("by_sandbox_id", ["sandboxId"]),
+
+  preview_captures: defineTable({
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("completed"), v.literal("failed")),
+    viewport: v.optional(v.object({
+      width: v.number(),
+      height: v.number(),
+    })),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_project", ["projectId"]),
 });

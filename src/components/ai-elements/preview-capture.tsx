@@ -132,7 +132,7 @@ export function PreviewCapture({ messageId, className }: PreviewCaptureProps) {
             </div>
           )}
 
-          {capture.durationMs && capture.status === "completed" && (
+          {capture.durationMs != null && capture.status === "completed" && (
             <div className="mt-2 text-muted-foreground text-xs">
               Captured in {(capture.durationMs / 1000).toFixed(1)}s
             </div>

@@ -171,3 +171,32 @@ export const getMessages = query({
       .paginate(args.paginationOpts);
   },
 });
+
+export const getPreviewCapture = query({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await verifyAuth(ctx);
+
+    const message = await ctx.db.get("messages", args.messageId);
+    if (!message) {
+      return null;
+    }
+
+    const conversation = await ctx.db.get("conversations", message.conversationId);
+    if (!conversation) {
+      return null;
+    }
+
+    const project = await ctx.db.get("projects", conversation.projectId);
+    if (!project || project.ownerId !== identity.subject) {
+      throw new Error("Unauthorized to access this project");
+    }
+
+    return await ctx.db
+      .query("preview_captures")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .first();
+  },
+});
