@@ -9,7 +9,7 @@ import { getPostHogClient } from "@/lib/posthog-server";
 import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
-  url: z.url(),
+  url: z.string().url(),
 });
 
 function parseGitHubUrl(url: string) {

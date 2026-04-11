@@ -86,8 +86,7 @@ ${fileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
 }
 
 export const reviewWorker = inngest.createFunction(
-  { id: "review-worker" },
-  { event: "worker/review" },
+  { id: "review-worker", triggers: [{ event: "worker/review" }] },
   async ({ event, step }) => {
     const data = event.data as ReviewInput;
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;

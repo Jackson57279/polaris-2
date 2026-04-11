@@ -4,7 +4,7 @@ import { firecrawl } from "@/lib/firecrawl";
 
 const paramsSchema = z.object({
   urls: z
-    .array(z.url("Invalid URL format"))
+    .array(z.string().url("Invalid URL format"))
     .min(1, "Provide at least one URL to scrape"),
 });
 

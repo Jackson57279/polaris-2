@@ -139,19 +139,37 @@ const UI_KEYWORDS = [
   "web app", "web page", "webpage", "site", "interface", "prototype",
 ];
 
-/**
- * Checks whether a user message is likely requesting UI/frontend generation.
- */
 export function isUIGenerationRequest(message: string): boolean {
   const lower = message.toLowerCase();
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-// Impeccable skill - single design skill for all UI generation
-const IMPECCABLE_SKILL_URL =
-  "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/impeccable/SKILL.md";
+// Impeccable skills - all 18 skills from pbakaus/impeccable repo
+// Automatically installed and fetched at runtime
+const IMPECCABLE_SKILLS = {
+  adapt: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/adapt/SKILL.md",
+  animate: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/animate/SKILL.md",
+  audit: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/audit/SKILL.md",
+  bolder: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/bolder/SKILL.md",
+  clarify: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/clarify/SKILL.md",
+  colorize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/colorize/SKILL.md",
+  critique: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/critique/SKILL.md",
+  delight: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/delight/SKILL.md",
+  distill: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/distill/SKILL.md",
+  harden: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/harden/SKILL.md",
+  impeccable: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/impeccable/SKILL.md",
+  layout: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/layout/SKILL.md",
+  optimize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/optimize/SKILL.md",
+  overdrive: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/overdrive/SKILL.md",
+  polish: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/polish/SKILL.md",
+  quieter: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/quieter/SKILL.md",
+  shape: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/shape/SKILL.md",
+  typeset: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/typeset/SKILL.md",
+} as const;
 
-let cachedImpeccableSkill: { content: string; fetchedAt: number } | null = null;
+type ImpeccableSkillName = keyof typeof IMPECCABLE_SKILLS;
+
+const skillCache = new Map<ImpeccableSkillName, { content: string; fetchedAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 function stripFrontmatter(content: string): string {
@@ -162,31 +180,40 @@ function stripFrontmatter(content: string): string {
   return content;
 }
 
-async function fetchAndCache(
-  url: string,
-  cache: { content: string; fetchedAt: number } | null,
-  setCache: (v: { content: string; fetchedAt: number }) => void
-): Promise<string | null> {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.content;
+async function fetchSkillFromUrl(url: string, cached: { content: string; fetchedAt: number } | undefined): Promise<string | null> {
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.content;
   }
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return cache?.content ?? null;
+    if (!res.ok) return cached?.content ?? null;
     const content = stripFrontmatter(await res.text());
-    setCache({ content, fetchedAt: Date.now() });
     return content;
   } catch {
-    return cache?.content ?? null;
+    return cached?.content ?? null;
   }
 }
 
-/**
- * Fetches the Impeccable design skill - production-grade frontend design guidelines.
- * Automatically installed and used for all UI generation requests.
- */
+async function fetchSkill(name: ImpeccableSkillName): Promise<string | null> {
+  const url = IMPECCABLE_SKILLS[name];
+  const cached = skillCache.get(name);
+  const content = await fetchSkillFromUrl(url, cached);
+  if (content) {
+    skillCache.set(name, { content, fetchedAt: Date.now() });
+  }
+  return content;
+}
+
 export async function fetchImpeccableGuidelines(): Promise<string | null> {
-  return fetchAndCache(IMPECCABLE_SKILL_URL, cachedImpeccableSkill, (v) => {
-    cachedImpeccableSkill = v;
-  });
+  const mainSkill = await fetchSkill("impeccable");
+  if (!mainSkill) return null;
+
+  const combined = [
+    "# Impeccable Design Skills",
+    "",
+    "## Core Design Skill (impeccable)",
+    mainSkill,
+  ];
+
+  return combined.join("\n");
 }

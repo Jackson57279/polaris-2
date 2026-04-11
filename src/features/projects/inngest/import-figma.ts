@@ -16,6 +16,7 @@ interface ImportFigmaEvent {
 export const importFigma = inngest.createFunction(
   {
     id: "import-figma",
+    triggers: [{ event: "figma/import.fig" }],
     onFailure: async ({ event, step }) => {
       const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
       if (!internalKey) return;
@@ -31,7 +32,6 @@ export const importFigma = inngest.createFunction(
       });
     },
   },
-  { event: "figma/import.fig" },
   async ({ event, step }) => {
     const { projectId, conversationId, fileName } =
       event.data as ImportFigmaEvent;

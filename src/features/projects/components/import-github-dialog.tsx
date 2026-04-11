@@ -21,7 +21,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 const formSchema = z.object({
-  url: z.url("Please enter a valid URL"),
+  url: z.string().url("Please enter a valid URL"),
 });
 
 interface ImportGithubDialogProps {

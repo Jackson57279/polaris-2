@@ -88,8 +88,7 @@ ${searchContext}`,
 }
 
 export const exaResearchWorker = inngest.createFunction(
-  { id: "exa-research-worker" },
-  { event: "worker/exa-research" },
+  { id: "exa-research-worker", triggers: [{ event: "worker/exa-research" }] },
   async ({ event, step }) => {
     const data = event.data as ExaResearchInput;
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;

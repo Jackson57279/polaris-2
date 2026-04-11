@@ -116,6 +116,7 @@ const FALLBACK_AGENT_RESPONSE =
 export const processMessage = inngest.createFunction(
   {
     id: "process-message",
+    triggers: [{ event: "message/sent" }],
     concurrency: {
       key: "event.data.conversationId",
       limit: 1,
@@ -141,9 +142,6 @@ export const processMessage = inngest.createFunction(
         });
       }
     },
-  },
-  {
-    event: "message/sent",
   },
   async ({ event, step }) => {
     const {

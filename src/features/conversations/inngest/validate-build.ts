@@ -68,6 +68,7 @@ const detectBuildCommand = (files: FileDoc[]): string | null => {
 export const validateBuild = inngest.createFunction(
   {
     id: "validate-build",
+    triggers: [{ event: "build/validate" }],
     concurrency: {
       key: "event.data.projectId",
       limit: 1,
@@ -78,9 +79,6 @@ export const validateBuild = inngest.createFunction(
         if: "event.data.messageId == async.data.messageId",
       },
     ],
-  },
-  {
-    event: "build/validate",
   },
   async ({ event, step }) => {
     const { messageId, projectId, buildCommand } = event.data as BuildValidationEvent;
