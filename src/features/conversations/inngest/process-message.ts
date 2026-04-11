@@ -15,13 +15,9 @@ import {
   CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
   PLAN_STEP_PROMPT,
-  SKILL_ROUTER_PROMPT,
   ENHANCE_SYSTEM_PROMPT,
   isUIGenerationRequest,
-  fetchDesignGuidelines,
-  fetchMinimalistGuidelines,
-  fetchTasteAdvancedGuidelines,
-  type DesignSkillType,
+  fetchImpeccableGuidelines,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { createReadFilesTool } from "./tools/read-files";
@@ -392,37 +388,16 @@ export const processMessage = inngest.createFunction(
     }
 
     // ──────────────────────────────────────────────
-    // Stage 4.5 — Design skill selection + injection
+    // Stage 4.5 — Impeccable design skill injection
     // ──────────────────────────────────────────────
 
     if (isUIGenerationRequest(workingMessage)) {
-      const skillType = await step.run("select-design-skill", async () => {
-        const result = await generateText({
-          model: createVercelAIModel("skill-router"),
-          prompt: `${SKILL_ROUTER_PROMPT} ${workingMessage}`,
-        });
-        try {
-          const parsed = JSON.parse(result.text.trim()) as { skill: DesignSkillType };
-          return parsed.skill;
-        } catch {
-          return "taste" as DesignSkillType;
-        }
+      const designGuidelines = await step.run("fetch-impeccable-skill", async () => {
+        return await fetchImpeccableGuidelines();
       });
 
-      if (skillType !== "none") {
-        const designGuidelines = await step.run("fetch-design-skill", async () => {
-          if (skillType === "minimalist") {
-            return await fetchMinimalistGuidelines();
-          } else if (skillType === "taste-advanced") {
-            return await fetchTasteAdvancedGuidelines();
-          } else {
-            return await fetchDesignGuidelines();
-          }
-        });
-
-        if (designGuidelines) {
-          systemPrompt += `\n\n<design_guidelines skill="${skillType}">\n${designGuidelines}\n</design_guidelines>`;
-        }
+      if (designGuidelines) {
+        systemPrompt += `\n\n<design_guidelines skill="impeccable">\n${designGuidelines}\n</design_guidelines>`;
       }
     }
 
