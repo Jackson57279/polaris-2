@@ -63,7 +63,6 @@ export const exportToGithub = inngest.createFunction(
           internalKey,
           projectId,
           status: "failed",
-          error: event.data.error.message,
         });
       });
     },
