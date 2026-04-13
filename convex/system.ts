@@ -38,23 +38,6 @@ export const getProjectById = query({
   },
 });
 
-export const hasActiveSubscription = query({
-  args: {
-    internalKey: v.string(),
-    clerkUserId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    validateInternalKey(args.internalKey);
-    const activeSub = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_clerk_user_status", (q) => 
-        q.eq("clerkUserId", args.clerkUserId).eq("status", "active")
-      )
-      .first();
-    return activeSub !== null;
-  },
-});
-
 export const createMessage = mutation({
   args: {
     internalKey: v.string(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { SettingsIcon, SparkleIcon } from "lucide-react";
+import { SparkleIcon } from "lucide-react";
 import { FaGithub, FaFigma } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -80,11 +80,7 @@ export const ProjectsView = () => {
                 LuminaWeb
               </h1>
             </div>
-            <Button variant="ghost" size="icon" className="shrink-0" asChild>
-              <Link href="/settings">
-                <SettingsIcon className="size-5" />
-              </Link>
-            </Button>
+
           </div>
 
           <div className="flex flex-col gap-4 w-full">
