@@ -28,6 +28,8 @@ import { createCreateFolderTool } from "./tools/create-folder";
 import { createRenameFileTool } from "./tools/rename-file";
 import { createDeleteFilesTool } from "./tools/delete-files";
 import { createScrapeUrlsTool } from "./tools/scrape-urls";
+import { createGenerateImageTool } from "./tools/generate-image";
+import { createGenerateGradientTool } from "./tools/generate-gradient";
 import { runRepoResearch } from "./workers/repo-research";
 import { runExaResearch } from "./workers/exa-research";
 import { runReview } from "./workers/review";
@@ -80,6 +82,13 @@ const getToolLabel = (
     case "scrapeUrls": {
       const urls = (input.urls as string[]) ?? [];
       return `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`;
+    }
+    case "generateImage": {
+      return "Generate image";
+    }
+    case "generateGradient": {
+      const style = (input.style as string) ?? "gradient";
+      return `Generate ${style} background`;
     }
     default:
       return null;
@@ -417,6 +426,8 @@ export const processMessage = inngest.createFunction(
         createRenameFileTool({ internalKey, messageId }),
         createDeleteFilesTool({ internalKey, messageId }),
         createScrapeUrlsTool(),
+        createGenerateImageTool(),
+        createGenerateGradientTool({ projectId, internalKey, messageId }),
       ],
     });
 
