@@ -85,6 +85,7 @@ export default defineSchema({
         })
       )
     ),
+    imageUrls: v.optional(v.array(v.string())),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_project_status", ["projectId", "status"]),

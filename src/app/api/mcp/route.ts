@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { z } from "zod";
+import { z } from "zod/v3";
 
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
@@ -272,8 +272,17 @@ function toolErr(userMessage: string, internalError?: unknown): ToolResult {
 function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   const server = new McpServer({ name: "polaris", version: "1.0.0" });
 
+  // Wrapper to avoid TS2589 with zod/v3 + MCP SDK generic inference
+  const registerTool = (
+    name: string,
+    config: unknown,
+    cb: (args: any) => any
+  ) => {
+    return (server as any).registerTool(name, config, cb);
+  };
+
   // ── list_projects ──────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "list_projects",
     { description: "List all Polaris projects belonging to the authenticated user" },
     async () => {
@@ -302,7 +311,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── list_files ─────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "list_files",
     {
       description:
@@ -340,7 +349,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── read_file ──────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "read_file",
     {
       description: "Read the content of a file",
@@ -356,7 +365,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── write_file ─────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "write_file",
     {
       description: "Update the content of an existing file",
@@ -383,7 +392,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── create_file ────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "create_file",
     {
       description:
@@ -418,7 +427,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── create_folder ──────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "create_folder",
     {
       description: "Create a new folder in a project",
@@ -448,7 +457,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── delete_file ────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "delete_file",
     {
       description: "Delete a file or folder. Folders are deleted recursively.",
@@ -472,7 +481,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── rename_file ────────────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "rename_file",
     {
       description: "Rename a file or folder",
@@ -498,7 +507,7 @@ function buildMcpServer(clerkUserId: string, internalKey: string): McpServer {
   );
 
   // ── get_project_status ─────────────────────────────────────────────────────
-  server.registerTool(
+  registerTool(
     "get_project_status",
     {
       description:

@@ -86,6 +86,7 @@ interface MessageWithBuildStatusProps {
     status?: "processing" | "completed" | "cancelled";
     content: string;
     toolCalls?: Array<{ toolName: string; label: string }>;
+    imageUrls?: string[];
   };
   messageIndex: number;
   totalMessages: number;
@@ -112,6 +113,18 @@ function MessageWithBuildStatus({ message, messageIndex, totalMessages }: Messag
           </span>
         ) : (
           <>
+            {message.imageUrls && message.imageUrls.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {message.imageUrls.map((url, i) => (
+                  <img
+                    key={i}
+                    src={url}
+                    alt={`Uploaded image ${i + 1}`}
+                    className="max-h-32 max-w-full rounded-md object-cover"
+                  />
+                ))}
+              </div>
+            )}
             {message.toolCalls && message.toolCalls.length > 0 && (
               <div className="mb-2 flex flex-wrap gap-1">
                 {message.toolCalls.map((tc, i) => (

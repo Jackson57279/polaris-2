@@ -52,6 +52,7 @@ export const createMessage = mutation({
         v.literal("cancelled")
       )
     ),
+    imageUrls: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -62,6 +63,7 @@ export const createMessage = mutation({
       role: args.role,
       content: args.content,
       status: args.status,
+      imageUrls: args.imageUrls,
     });
 
     // Update conversation's updatedAt

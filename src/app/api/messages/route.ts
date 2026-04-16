@@ -87,6 +87,7 @@ export async function POST(request: Request) {
     projectId,
     role: "user",
     content: message,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
   });
 
   // Create assistant message placeholder with processing status
