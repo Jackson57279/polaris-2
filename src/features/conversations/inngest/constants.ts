@@ -147,36 +147,26 @@ export function isUIGenerationRequest(message: string): boolean {
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-// Impeccable skills - all 18 skills from pbakaus/impeccable repo
-// Automatically installed and fetched at runtime
-const IMPECCABLE_SKILLS = {
-  adapt: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/adapt/SKILL.md",
-  animate: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/animate/SKILL.md",
-  audit: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/audit/SKILL.md",
-  bolder: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/bolder/SKILL.md",
-  clarify: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/clarify/SKILL.md",
-  colorize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/colorize/SKILL.md",
-  critique: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/critique/SKILL.md",
-  delight: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/delight/SKILL.md",
-  distill: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/distill/SKILL.md",
-  harden: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/harden/SKILL.md",
-  impeccable: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/impeccable/SKILL.md",
-  layout: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/layout/SKILL.md",
-  optimize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/optimize/SKILL.md",
-  overdrive: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/overdrive/SKILL.md",
-  polish: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/polish/SKILL.md",
-  quieter: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/quieter/SKILL.md",
-  shape: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/shape/SKILL.md",
-  typeset: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/typeset/SKILL.md",
+// Taste skills from leonxlnx/taste-skill collection
+// All skills except stitch-design-taste
+// Automatically fetched at runtime from GitHub
+const TASTE_SKILLS = {
+  "design-taste-frontend": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/design-taste-frontend/SKILL.md",
+  "high-end-visual-design": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/high-end-visual-design/SKILL.md",
+  "redesign-existing-projects": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/redesign-existing-projects/SKILL.md",
+  "full-output-enforcement": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/full-output-enforcement/SKILL.md",
+  "minimalist-ui": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/minimalist-ui/SKILL.md",
+  "industrial-brutalist-ui": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/industrial-brutalist-ui/SKILL.md",
+  "gpt-taste": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/gpt-taste/SKILL.md",
 } as const;
 
-type ImpeccableSkillName = keyof typeof IMPECCABLE_SKILLS;
+type TasteSkillName = keyof typeof TASTE_SKILLS;
 
-const skillCache = new Map<ImpeccableSkillName, { content: string; fetchedAt: number }>();
+const skillCache = new Map<TasteSkillName, { content: string; fetchedAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
-// Allowed domain for skill fetches - prevents SSRF attacks
-const ALLOWED_SKILL_DOMAIN = "raw.githubusercontent.com";
+// Allowed domains for skill fetches - prevents SSRF attacks
+const ALLOWED_SKILL_DOMAINS = ["raw.githubusercontent.com"];
 
 function stripFrontmatter(content: string): string {
   if (content.startsWith("---")) {
@@ -202,8 +192,8 @@ function isValidSkillUrl(url: string): boolean {
       return false;
     }
 
-    // Only allow specific trusted domain
-    if (parsed.hostname !== ALLOWED_SKILL_DOMAIN) {
+    // Only allow specific trusted domains
+    if (!ALLOWED_SKILL_DOMAINS.includes(parsed.hostname)) {
       return false;
     }
 
@@ -260,8 +250,8 @@ async function fetchSkillFromUrl(url: string, cached: { content: string; fetched
   }
 }
 
-async function fetchSkill(name: ImpeccableSkillName): Promise<string | null> {
-  const url = IMPECCABLE_SKILLS[name];
+async function fetchSkill(name: TasteSkillName): Promise<string | null> {
+  const url = TASTE_SKILLS[name];
   const cached = skillCache.get(name);
   const content = await fetchSkillFromUrl(url, cached);
   if (content) {
@@ -270,16 +260,29 @@ async function fetchSkill(name: ImpeccableSkillName): Promise<string | null> {
   return content;
 }
 
-export async function fetchImpeccableGuidelines(): Promise<string | null> {
-  const mainSkill = await fetchSkill("impeccable");
-  if (!mainSkill) return null;
+export async function fetchTasteGuidelines(): Promise<string | null> {
+  const skills = await Promise.all([
+    fetchSkill("design-taste-frontend"),
+    fetchSkill("high-end-visual-design"),
+    fetchSkill("redesign-existing-projects"),
+    fetchSkill("full-output-enforcement"),
+    fetchSkill("minimalist-ui"),
+    fetchSkill("industrial-brutalist-ui"),
+    fetchSkill("gpt-taste"),
+  ]);
+
+  const validSkills = skills.filter((s): s is string => s !== null);
+  if (validSkills.length === 0) return null;
 
   const combined = [
-    "# Impeccable Design Skills",
+    "# Taste Design Skills",
     "",
-    "## Core Design Skill (impeccable)",
-    mainSkill,
+    "## Core Design Guidelines",
+    ...validSkills.map((skill, i) => `### Skill ${i + 1}\n${skill}`),
   ];
 
-  return combined.join("\n");
+  return combined.join("\n\n");
 }
+
+// Backward compatibility alias
+export const fetchImpeccableGuidelines = fetchTasteGuidelines;

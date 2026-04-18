@@ -397,16 +397,16 @@ export const processMessage = inngest.createFunction(
     }
 
     // ──────────────────────────────────────────────
-    // Stage 4.5 — Impeccable design skill injection
+    // Stage 4.5 — Taste design skill injection
     // ──────────────────────────────────────────────
 
     if (isUIGenerationRequest(workingMessage)) {
-      const designGuidelines = await step.run("fetch-impeccable-skill", async () => {
+      const designGuidelines = await step.run("fetch-taste-skills", async () => {
         return await fetchImpeccableGuidelines();
       });
 
       if (designGuidelines) {
-        systemPrompt += `\n\n<design_guidelines skill="impeccable">\n${designGuidelines}\n</design_guidelines>`;
+        systemPrompt += `\n\n<design_guidelines skill="taste">\n${designGuidelines}\n</design_guidelines>`;
       }
     }
 
