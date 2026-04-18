@@ -38,6 +38,17 @@ export const getProjectById = query({
   },
 });
 
+export const getMessageById = query({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    return await ctx.db.get(args.messageId);
+  },
+});
+
 export const createMessage = mutation({
   args: {
     internalKey: v.string(),
@@ -926,5 +937,205 @@ export const createProjectWithConversation = mutation({
     });
 
     return { projectId, conversationId };
+  },
+});
+
+// ============================================================================
+// Iteration Mode Mutations
+// ============================================================================
+
+export const updateMessageIterationData = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    iterationData: v.object({
+      iterations: v.optional(v.array(v.any())),
+      sandboxId: v.optional(v.string()),
+      finalOutput: v.optional(v.string()),
+      status: v.optional(v.union(v.literal("running"), v.literal("completed"), v.literal("failed"))),
+      maxIterations: v.optional(v.number()),
+      currentIteration: v.optional(v.number()),
+      testCommand: v.optional(v.string()),
+      language: v.optional(v.union(v.literal("javascript"), v.literal("typescript"), v.literal("python"))),
+    }),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error(`Message ${args.messageId} not found`);
+    }
+
+    const existingData = message.iterationData;
+
+    await ctx.db.patch(args.messageId, {
+      iterationMode: true,
+      iterationData: {
+        iterations: args.iterationData.iterations ?? existingData?.iterations ?? [],
+        sandboxId: args.iterationData.sandboxId ?? existingData?.sandboxId,
+        finalOutput: args.iterationData.finalOutput ?? existingData?.finalOutput,
+        status: args.iterationData.status ?? existingData?.status ?? "running",
+        maxIterations: args.iterationData.maxIterations ?? existingData?.maxIterations ?? 10,
+        currentIteration: args.iterationData.currentIteration ?? existingData?.currentIteration ?? 0,
+        testCommand: args.iterationData.testCommand ?? existingData?.testCommand,
+        language: args.iterationData.language ?? existingData?.language ?? "typescript",
+      },
+    });
+  },
+});
+
+export const appendIteration = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    iteration: v.object({
+      iterationNumber: v.number(),
+      code: v.string(),
+      executionResult: v.string(),
+      reasoning: v.optional(v.string()),
+      timestamp: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error(`Message ${args.messageId} not found`);
+    }
+
+    const existingData = message.iterationData;
+    const existingIterations = existingData?.iterations ?? [];
+
+    // Remove any existing iteration with the same number (shouldn't happen, but safety)
+    const filteredIterations = existingIterations.filter(
+      (i: { iterationNumber: number }) => i.iterationNumber !== args.iteration.iterationNumber
+    );
+
+    await ctx.db.patch(args.messageId, {
+      iterationMode: true,
+      iterationData: {
+        ...existingData,
+        iterations: [...filteredIterations, args.iteration],
+        currentIteration: args.iteration.iterationNumber,
+        status: existingData?.status ?? "running",
+      },
+    });
+  },
+});
+
+// E2B Sandbox tracking mutations
+export const createE2BSandbox = mutation({
+  args: {
+    internalKey: v.string(),
+    conversationId: v.id("conversations"),
+    messageId: v.optional(v.id("messages")),
+    sandboxId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const now = Date.now();
+
+    await ctx.db.insert("e2b_sandboxes", {
+      conversationId: args.conversationId,
+      messageId: args.messageId,
+      sandboxId: args.sandboxId,
+      status: "active",
+      createdAt: now,
+      lastUsedAt: now,
+    });
+  },
+});
+
+export const updateE2BSandboxStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    sandboxId: v.string(),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("destroyed")),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const sandbox = await ctx.db
+      .query("e2b_sandboxes")
+      .withIndex("by_sandbox_id", (q) => q.eq("sandboxId", args.sandboxId))
+      .first();
+
+    if (sandbox) {
+      await ctx.db.patch(sandbox._id, {
+        status: args.status,
+        lastUsedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const createPreviewCapture = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    viewport: v.optional(
+      v.object({
+        width: v.number(),
+        height: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const now = Date.now();
+    return await ctx.db.insert("preview_captures", {
+      messageId: args.messageId,
+      projectId: args.projectId,
+      status: "pending",
+      viewport: args.viewport,
+      createdAt: now,
+    });
+  },
+});
+
+export const updatePreviewCaptureStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    previewCaptureId: v.id("preview_captures"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const patch: {
+      status: typeof args.status;
+      imageStorageId?: typeof args.imageStorageId;
+      imageUrl?: typeof args.imageUrl;
+      error?: typeof args.error;
+      durationMs?: typeof args.durationMs;
+    } = { status: args.status };
+
+    if (args.imageStorageId !== undefined) {
+      patch.imageStorageId = args.imageStorageId;
+    }
+    if (args.imageUrl !== undefined) {
+      patch.imageUrl = args.imageUrl;
+    }
+    if (args.error !== undefined) {
+      patch.error = args.error;
+    }
+    if (args.durationMs !== undefined) {
+      patch.durationMs = args.durationMs;
+    }
+
+    await ctx.db.patch(args.previewCaptureId, patch);
   },
 });

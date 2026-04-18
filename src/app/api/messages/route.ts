@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { E2B_CONFIG } from "@/lib/e2b";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -13,6 +14,9 @@ const requestSchema = z.object({
   conversationId: z.string(),
   message: z.string(),
   imageUrls: z.array(z.string()).optional().default([]),
+  iterationMode: z.boolean().optional().default(false),
+  language: z.enum(["javascript", "typescript", "python"]).optional().default("typescript"),
+  testCommand: z.string().optional(),
 });
 
 export const maxDuration = 60;
@@ -34,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { conversationId, message, imageUrls } = requestSchema.parse(body);
+  const { conversationId, message, imageUrls, iterationMode, language, testCommand } = requestSchema.parse(body);
 
   // Call convex mutation, query
   const conversation = await convex.query(api.system.getConversationById, {
@@ -100,20 +104,45 @@ export async function POST(request: Request) {
       role: "assistant",
       content: "",
       status: "processing",
+      ...(iterationMode && {
+        iterationMode: true,
+        iterationData: {
+          iterations: [],
+          status: "running" as const,
+          maxIterations: E2B_CONFIG.maxIterations,
+          currentIteration: 0,
+          language,
+          testCommand,
+        },
+      }),
     }
   );
 
-  // Trigger Inngest to process the message
-  const event = await inngest.send({
-    name: "message/sent",
-    data: {
-      messageId: assistantMessageId,
-      conversationId,
-      projectId,
-      message,
-      imageUrls,
-    },
-  });
+  // Trigger Inngest to process the message (regular or iteration mode)
+  const event = iterationMode
+    ? await inngest.send({
+        name: "message/iteration",
+        data: {
+          messageId: assistantMessageId,
+          conversationId,
+          projectId,
+          message,
+          imageUrls,
+          maxIterations: E2B_CONFIG.maxIterations,
+          language,
+          testCommand,
+        },
+      })
+    : await inngest.send({
+        name: "message/sent",
+        data: {
+          messageId: assistantMessageId,
+          conversationId,
+          projectId,
+          message,
+          imageUrls,
+        },
+      });
 
   const posthog = getPostHogClient();
   posthog.capture({
@@ -123,6 +152,8 @@ export async function POST(request: Request) {
       project_id: projectId,
       conversation_id: conversationId,
       has_images: imageUrls.length > 0,
+      iteration_mode: iterationMode,
+      language: language,
     },
   });
   await posthog.shutdown();

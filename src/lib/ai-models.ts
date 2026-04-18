@@ -1,7 +1,7 @@
 import { openai } from "@inngest/agent-kit";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
-export type AgentRole = "manager" | "research" | "review" | "title" | "skill-router" | "enhance";
+export type AgentRole = "manager" | "research" | "review" | "title" | "skill-router" | "enhance" | "iteration";
 
 const MODEL_DEFAULTS: Record<AgentRole, string> = {
   manager: "moonshotai/kimi-k2.5:nitro",
@@ -10,6 +10,7 @@ const MODEL_DEFAULTS: Record<AgentRole, string> = {
   title: "x-ai/grok-4.1-fast",
   "skill-router": "google/gemini-3.1-flash-lite-preview",
   enhance: "moonshotai/kimi-k2.5:nitro",
+  iteration: "z-ai/glm-5.1",
 };
 
 const ENV_KEYS: Record<AgentRole, string> = {
@@ -19,6 +20,7 @@ const ENV_KEYS: Record<AgentRole, string> = {
   title: "POLARIS_TITLE_MODEL",
   "skill-router": "POLARIS_SKILL_ROUTER_MODEL",
   enhance: "POLARIS_ENHANCE_MODEL",
+  iteration: "POLARIS_ITERATION_MODEL",
 };
 
 export function getModelId(role: AgentRole): string {

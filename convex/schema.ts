@@ -85,6 +85,31 @@ export default defineSchema({
         })
       )
     ),
+    iterationMode: v.optional(v.boolean()),
+    iterationData: v.optional(
+      v.object({
+        iterations: v.array(
+          v.object({
+            iterationNumber: v.number(),
+            code: v.string(),
+            executionResult: v.optional(v.string()),
+            reasoning: v.optional(v.string()),
+            timestamp: v.number(),
+          })
+        ),
+        sandboxId: v.optional(v.string()),
+        finalOutput: v.optional(v.string()),
+        status: v.union(
+          v.literal("running"),
+          v.literal("completed"),
+          v.literal("failed")
+        ),
+        maxIterations: v.optional(v.number()),
+        currentIteration: v.optional(v.number()),
+        testCommand: v.optional(v.string()),
+        language: v.optional(v.union(v.literal("javascript"), v.literal("typescript"), v.literal("python"))),
+      })
+    ),
     imageUrls: v.optional(v.array(v.string())),
   })
     .index("by_conversation", ["conversationId"])
@@ -143,4 +168,33 @@ export default defineSchema({
   })
     .index("by_key_hash", ["keyHash"])
     .index("by_user", ["clerkUserId"]),
+
+  e2b_sandboxes: defineTable({
+    conversationId: v.id("conversations"),
+    messageId: v.optional(v.id("messages")),
+    sandboxId: v.string(),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("destroyed")),
+    createdAt: v.number(),
+    lastUsedAt: v.number(),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_message", ["messageId"])
+    .index("by_sandbox_id", ["sandboxId"]),
+
+  preview_captures: defineTable({
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("completed"), v.literal("failed")),
+    viewport: v.optional(v.object({
+      width: v.number(),
+      height: v.number(),
+    })),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_project", ["projectId"]),
 });

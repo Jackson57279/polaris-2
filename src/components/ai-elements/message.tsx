@@ -22,6 +22,12 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import dynamic from "next/dynamic";
+
+const IterationDisplay = dynamic(
+  () => import("./iteration-display").then((m) => ({ default: m.IterationDisplay })),
+  { ssr: false }
+);
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -449,3 +455,70 @@ export const MessageToolbar = ({
     {children}
   </div>
 );
+
+// ============================================================================
+// Iteration Mode Components
+// ============================================================================
+
+export type MessageIterationProps = HTMLAttributes<HTMLDivElement> & {
+  iterationData?: {
+    iterations: Array<{
+      iterationNumber: number;
+      code: string;
+      executionResult: string;
+      reasoning?: string;
+      timestamp: number;
+    }>;
+    sandboxId?: string;
+    finalOutput?: string;
+    status: "running" | "completed" | "failed";
+    maxIterations?: number;
+    currentIteration?: number;
+    language?: "javascript" | "typescript" | "python";
+  };
+};
+
+export const MessageIteration = ({
+  className,
+  iterationData,
+  ...props
+}: MessageIterationProps) => {
+  if (!iterationData) {
+    return null;
+  }
+
+  return (
+    <div className={cn("mt-4", className)} {...props}>
+      <IterationDisplay
+        data={{
+          iterations: iterationData.iterations.map((i) => {
+            let parsedExecutionResult = null;
+            if (i.executionResult && typeof i.executionResult === "string") {
+              try {
+                parsedExecutionResult = JSON.parse(i.executionResult);
+              } catch {
+                parsedExecutionResult = {
+                  stdout: "",
+                  stderr: i.executionResult,
+                  exitCode: 1,
+                  error: { name: "ParseError", value: "Failed to parse execution result", traceback: "" },
+                  executionTimeMs: 0,
+                };
+              }
+            }
+            return {
+              ...i,
+              executionResult: parsedExecutionResult,
+            };
+          }),
+          sandboxId: iterationData.sandboxId,
+          finalOutput: iterationData.finalOutput,
+          status: iterationData.status,
+          maxIterations: iterationData.maxIterations,
+          currentIteration: iterationData.currentIteration,
+          language: iterationData.language,
+        }}
+      />
+    </div>
+  );
+};

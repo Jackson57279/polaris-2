@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { verifyAuth } from "./auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -363,5 +363,51 @@ export const updateFile = mutation({
     await ctx.db.patch("projects", file.projectId, {
       updatedAt: now,
     });
+  },
+});
+
+// Internal key validation for system operations
+function validateInternalKey(internalKey: string): void {
+  const expectedKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
+  if (!expectedKey || internalKey !== expectedKey) {
+    throw new Error("Invalid internal key");
+  }
+}
+
+/**
+ * Store image in Convex storage (server-side action)
+ */
+export const storeImage = action({
+  args: {
+    internalKey: v.string(),
+    data: v.array(v.number()),
+    contentType: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const bytes = new Uint8Array(args.data);
+    const blob = new Blob([bytes], { type: args.contentType });
+
+    const storageId = await ctx.storage.store(blob);
+
+    return storageId;
+  },
+});
+
+/**
+ * Get public URL for stored image
+ */
+export const getImageUrl = query({
+  args: {
+    internalKey: v.string(),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    // Get a signed URL for the storage item
+    const url = await ctx.storage.getUrl(args.storageId);
+    return url;
   },
 });
