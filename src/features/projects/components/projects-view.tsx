@@ -1,6 +1,6 @@
 "use client";
 
-import { SparkleIcon } from "lucide-react";
+import { SparkleIcon, FileText } from "lucide-react";
 import { FaGithub, FaFigma } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { ProjectsList } from "./projects-list";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
 import { ImportGithubDialog } from "./import-github-dialog";
 import { ImportFigmaDialog } from "./import-figma-dialog";
+import { ImportPdfDialog } from "./import-pdf-dialog";
 import { NewProjectDialog } from "./new-project-dialog";
 
 
@@ -20,6 +21,7 @@ export const ProjectsView = () => {
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFigmaDialogOpen, setImportFigmaDialogOpen] = useState(false);
+  const [importPdfDialogOpen, setImportPdfDialogOpen] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,10 @@ export const ProjectsView = () => {
         if (e.key === "f") {
           e.preventDefault();
           setImportFigmaDialogOpen(true);
+        }
+        if (e.key === "r") {
+          e.preventDefault();
+          setImportPdfDialogOpen(true);
         }
       }
     }
@@ -63,6 +69,10 @@ export const ProjectsView = () => {
         open={importFigmaDialogOpen}
         onOpenChange={setImportFigmaDialogOpen}
       />
+      <ImportPdfDialog
+        open={importPdfDialogOpen}
+        onOpenChange={setImportPdfDialogOpen}
+      />
       <NewProjectDialog
         open={newProjectDialogOpen}
         onOpenChange={setNewProjectDialogOpen}
@@ -84,7 +94,7 @@ export const ProjectsView = () => {
           </div>
 
           <div className="flex flex-col gap-4 w-full">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
                 onClick={() => setNewProjectDialogOpen(true)}
@@ -133,6 +143,23 @@ export const ProjectsView = () => {
                 <div>
                   <span className="text-sm">
                     Figma
+                  </span>
+                </div>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setImportPdfDialogOpen(true)}
+                className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <FileText className="size-4" />
+                  <Kbd className="bg-accent border">
+                    ⌘R
+                  </Kbd>
+                </div>
+                <div>
+                  <span className="text-sm">
+                    Resume
                   </span>
                 </div>
               </Button>
