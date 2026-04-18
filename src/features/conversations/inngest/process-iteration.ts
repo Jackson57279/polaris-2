@@ -92,7 +92,7 @@ const generateInitialCode = async (
       },
     ],
     temperature: 0.2,
-    maxTokens: 8000,
+    maxOutputTokens: 8000,
   });
 
   return parseResponse(result.text);
@@ -131,7 +131,7 @@ const generateRefinedCode = async (
       },
     ],
     temperature: 0.2,
-    maxTokens: 8000,
+    maxOutputTokens: 8000,
   });
 
   return parseResponse(result.text);
@@ -155,10 +155,11 @@ export const processIteration = inngest.createFunction(
   {
     id: "process-iteration",
     name: "Process Iteration Mode",
+    triggers: [{ event: "message/iteration" }],
     concurrency: {
       limit: 3, // Limit concurrent expensive iterations
     },
-    timeout: "15m",
+    timeouts: { finish: "15m" },
     cancelOn: [
       {
         event: "message/cancel",
@@ -199,9 +200,6 @@ export const processIteration = inngest.createFunction(
         });
       }
     },
-  },
-  {
-    event: "message/iteration",
   },
   async ({ event, step }) => {
     const {
@@ -287,11 +285,11 @@ export const processIteration = inngest.createFunction(
               reasoning = result.reasoning;
             } else {
               // Refine based on previous execution - fetch from database
-              const message = await convex.query(api.system.getMessageById, {
+              const storedMessage = await convex.query(api.system.getMessageById, {
                 internalKey,
                 messageId,
               });
-              const iterationData = message?.iterationData;
+              const iterationData = storedMessage?.iterationData;
               const iterations = iterationData?.iterations || [];
               const previousIteration = iterations[iterations.length - 1];
 
@@ -382,17 +380,10 @@ export const processIteration = inngest.createFunction(
           }
         );
 
-        if (shouldContinue?.success) {
+        if (shouldContinue && "success" in shouldContinue) {
           currentCode = shouldContinue.finalCode;
           isComplete = true;
-          isSuccess = true;
-          break;
-        }
-
-        if (shouldContinue?.success === false) {
-          currentCode = shouldContinue.finalCode;
-          isComplete = true;
-          isSuccess = false;
+          isSuccess = shouldContinue.success;
           break;
         }
       }

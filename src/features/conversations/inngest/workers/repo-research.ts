@@ -91,8 +91,7 @@ ${keyFileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
 }
 
 export const repoResearchWorker = inngest.createFunction(
-  { id: "repo-research-worker" },
-  { event: "worker/repo-research" },
+  { id: "repo-research-worker", triggers: [{ event: "worker/repo-research" }] },
   async ({ event, step }) => {
     const data = event.data as RepoResearchInput;
     const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;

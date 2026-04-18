@@ -30,6 +30,9 @@ The build results will be visible to the user in the conversation. If the build 
 - Use bun for package management when suggesting commands the user will run locally (e.g. "bun install", "bun run dev"). For in-browser preview/deploy (WebContainers) only npm is available by default, so do not suggest bun there.
 - When creating package.json, ALWAYS use stable package versions. NEVER use \`@rc\`, \`@beta\`, \`@alpha\`, or release candidate tags. For React specifically, use \`"react": "19.2.4"\` and \`"react-dom": "19.2.4"\` (or the latest stable 19.x version).
 - When building from a Figma design file: prioritize visual fidelity, use a consistent design system (colors, spacing, typography), create all sections and components implied by the design name, and make it look production-ready and polished.
+- For hero sections and atmospheric backgrounds, prefer using the generateGradient tool to create mesh, aurora, or noise gradients instead of flat colors. Only use generateImage for specific imagery (people, products, scenes) where a gradient won't suffice.
+- When using generateImage, request aspect ratios that match the layout (16:9 or 4:1 for wide heroes, 1:1 for profile/avatar images). Default to 1K size unless high resolution is critical.
+- Always reference generated gradient class names accurately and ensure the corresponding CSS file is imported in the component or layout.
 </rules>
 
 <response_format>
@@ -115,7 +118,7 @@ When enhancing a prompt, you must:
 
 5. **Define Technical Requirements**: Specify the tech stack (React 19.2.4, Tailwind CSS, GSAP 3, Lucide React, etc.), animation lifecycle management (gsap.context() in useEffect), and code quality standards. When creating package.json, ALWAYS use the stable React version: \`"react": "19.2.4"\` and \`"react-dom": "19.2.4"\` - NEVER use \`@rc\` or release candidate versions.
 
-6. **Use Real Assets**: Suggest real Unsplash image URLs or describe specific imagery. No placeholder content.
+6. **Use Real Assets**: For specific imagery (people, products, scenes), describe exactly what should be generated with generateImage. For atmospheric backgrounds and hero sections, strongly prefer using the generateGradient tool with mesh, aurora, or noise styles. No placeholder content.
 
 7. **Set the Tone**: End with an execution directive that sets the bar high — "build a digital instrument, not a website" energy.
 
@@ -139,27 +142,41 @@ const UI_KEYWORDS = [
   "web app", "web page", "webpage", "site", "interface", "prototype",
 ];
 
-/**
- * Checks whether a user message is likely requesting UI/frontend generation.
- */
 export function isUIGenerationRequest(message: string): boolean {
   const lower = message.toLowerCase();
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-export type DesignSkillType = "taste" | "minimalist" | "taste-advanced" | "none";
+// Impeccable skills - all 18 skills from pbakaus/impeccable repo
+// Automatically installed and fetched at runtime
+const IMPECCABLE_SKILLS = {
+  adapt: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/adapt/SKILL.md",
+  animate: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/animate/SKILL.md",
+  audit: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/audit/SKILL.md",
+  bolder: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/bolder/SKILL.md",
+  clarify: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/clarify/SKILL.md",
+  colorize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/colorize/SKILL.md",
+  critique: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/critique/SKILL.md",
+  delight: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/delight/SKILL.md",
+  distill: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/distill/SKILL.md",
+  harden: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/harden/SKILL.md",
+  impeccable: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/impeccable/SKILL.md",
+  layout: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/layout/SKILL.md",
+  optimize: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/optimize/SKILL.md",
+  overdrive: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/overdrive/SKILL.md",
+  polish: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/polish/SKILL.md",
+  quieter: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/quieter/SKILL.md",
+  shape: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/shape/SKILL.md",
+  typeset: "https://raw.githubusercontent.com/pbakaus/impeccable/main/source/skills/typeset/SKILL.md",
+} as const;
 
-const TASTE_SKILL_URL =
-  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md";
-const MINIMALIST_SKILL_URL =
-  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/minimalist-skill/SKILL.md";
-const TASTE_ADVANCED_SKILL_URL =
-  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/taste-skill/SKILL.md";
+type ImpeccableSkillName = keyof typeof IMPECCABLE_SKILLS;
 
-let cachedDesignSkill: { content: string; fetchedAt: number } | null = null;
-let cachedMinimalistSkill: { content: string; fetchedAt: number } | null = null;
-let cachedTasteAdvancedSkill: { content: string; fetchedAt: number } | null = null;
+const skillCache = new Map<ImpeccableSkillName, { content: string; fetchedAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+// Allowed domain for skill fetches - prevents SSRF attacks
+const ALLOWED_SKILL_DOMAIN = "raw.githubusercontent.com";
 
 function stripFrontmatter(content: string): string {
   if (content.startsWith("---")) {
@@ -169,61 +186,100 @@ function stripFrontmatter(content: string): string {
   return content;
 }
 
-async function fetchAndCache(
-  url: string,
-  cache: { content: string; fetchedAt: number } | null,
-  setCache: (v: { content: string; fetchedAt: number }) => void
-): Promise<string | null> {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.content;
+/**
+ * Validates that a URL is safe to fetch by checking:
+ * - URL is from allowed domain (prevents SSRF)
+ * - URL uses HTTPS protocol
+ * - URL doesn't contain private IP ranges
+ * - URL doesn't point to cloud metadata services
+ */
+function isValidSkillUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+
+    // Only allow HTTPS
+    if (parsed.protocol !== "https:") {
+      return false;
+    }
+
+    // Only allow specific trusted domain
+    if (parsed.hostname !== ALLOWED_SKILL_DOMAIN) {
+      return false;
+    }
+
+    // Block URLs with credentials (user:pass@host)
+    if (parsed.username || parsed.password) {
+      return false;
+    }
+
+    // Block common SSRF bypass techniques
+    const blockedPatterns = [
+      /^0\./, // 0.0.0.0/8
+      /^127\./, // 127.0.0.0/8 (localhost)
+      /^10\./, // 10.0.0.0/8 (private)
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // 172.16.0.0/12 (private)
+      /^192\.168\./, // 192.168.0.0/16 (private)
+      /^169\.254\./, // 169.254.0.0/16 (link-local)
+      /^::1$/, // IPv6 localhost
+      /^fc00:/, // IPv6 private
+      /^fe80:/, // IPv6 link-local
+      /\.internal$/,
+      /\.local$/,
+      /\.localhost$/,
+      /metadata\.google\.internal/,
+      /169\.254\.169\.254/, // AWS/Azure/GCP metadata
+    ];
+
+    if (blockedPatterns.some(pattern => pattern.test(parsed.hostname))) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchSkillFromUrl(url: string, cached: { content: string; fetchedAt: number } | undefined): Promise<string | null> {
+  // SSRF protection: validate URL before fetching
+  if (!isValidSkillUrl(url)) {
+    console.error(`[SSRF Blocked] Invalid skill URL: ${url}`);
+    return cached?.content ?? null;
+  }
+
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.content;
   }
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return cache?.content ?? null;
+    if (!res.ok) return cached?.content ?? null;
     const content = stripFrontmatter(await res.text());
-    setCache({ content, fetchedAt: Date.now() });
     return content;
   } catch {
-    return cache?.content ?? null;
+    return cached?.content ?? null;
   }
 }
 
-/**
- * Fetches the premium "taste" design skill (rich, expressive UI).
- */
-export async function fetchDesignGuidelines(): Promise<string | null> {
-  return fetchAndCache(TASTE_SKILL_URL, cachedDesignSkill, (v) => {
-    cachedDesignSkill = v;
-  });
+async function fetchSkill(name: ImpeccableSkillName): Promise<string | null> {
+  const url = IMPECCABLE_SKILLS[name];
+  const cached = skillCache.get(name);
+  const content = await fetchSkillFromUrl(url, cached);
+  if (content) {
+    skillCache.set(name, { content, fetchedAt: Date.now() });
+  }
+  return content;
 }
 
-/**
- * Fetches the minimalist design skill (ultra-clean, document-style UI).
- */
-export async function fetchMinimalistGuidelines(): Promise<string | null> {
-  return fetchAndCache(MINIMALIST_SKILL_URL, cachedMinimalistSkill, (v) => {
-    cachedMinimalistSkill = v;
-  });
+export async function fetchImpeccableGuidelines(): Promise<string | null> {
+  const mainSkill = await fetchSkill("impeccable");
+  if (!mainSkill) return null;
+
+  const combined = [
+    "# Impeccable Design Skills",
+    "",
+    "## Core Design Skill (impeccable)",
+    mainSkill,
+  ];
+
+  return combined.join("\n");
 }
-
-/**
- * Fetches the advanced taste design skill (high-agency frontend, creative arsenal).
- */
-export async function fetchTasteAdvancedGuidelines(): Promise<string | null> {
-  return fetchAndCache(TASTE_ADVANCED_SKILL_URL, cachedTasteAdvancedSkill, (v) => {
-    cachedTasteAdvancedSkill = v;
-  });
-}
-
-export const SKILL_ROUTER_PROMPT = `You are a design skill router. Given a user's request, decide which design style best matches their intent.
-
-Return ONLY a valid JSON object with one field:
-{ "skill": "taste" | "minimalist" | "taste-advanced" | "none" }
-
-Rules:
-- "taste" — expressive, premium, visually rich UI: marketing pages, SaaS landing pages, branded apps, bold dashboards
-- "minimalist" — ultra-clean, document-style, editorial or utility-focused interfaces: admin panels, data tools, text-heavy tools, typographic-first
-- "taste-advanced" — high-agency creative interfaces with complex animations, bento grids, perpetual motion, 3D effects, scroll-triggered reveals, highly interactive dashboards
-- "none" — not a UI generation request, or no design guidance is needed
-
-User request:`;

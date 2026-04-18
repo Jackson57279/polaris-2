@@ -9,7 +9,7 @@ import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
 import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
-  figFileUrl: z.url(),
+  figFileUrl: z.string().url(),
   fileName: z.string().min(1),
 });
 

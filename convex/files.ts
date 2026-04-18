@@ -4,7 +4,6 @@ import { mutation, query, action } from "./_generated/server";
 import { verifyAuth } from "./auth";
 import { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { getConvexSiteUrl } from "./utils";
 
 export const getFiles = query({
   args: { projectId: v.id("projects") },
@@ -387,13 +386,10 @@ export const storeImage = action({
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
-    // Convert number array back to Uint8Array
     const bytes = new Uint8Array(args.data);
+    const blob = new Blob([bytes], { type: args.contentType });
 
-    // Store in Convex storage
-    const storageId = await ctx.storage.store(bytes, {
-      contentType: args.contentType,
-    });
+    const storageId = await ctx.storage.store(blob);
 
     return storageId;
   },

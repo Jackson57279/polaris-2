@@ -38,20 +38,14 @@ export const getProjectById = query({
   },
 });
 
-export const hasActiveSubscription = query({
+export const getMessageById = query({
   args: {
     internalKey: v.string(),
-    clerkUserId: v.string(),
+    messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
-    const activeSub = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_clerk_user_status", (q) => 
-        q.eq("clerkUserId", args.clerkUserId).eq("status", "active")
-      )
-      .first();
-    return activeSub !== null;
+    return await ctx.db.get(args.messageId);
   },
 });
 
@@ -69,6 +63,7 @@ export const createMessage = mutation({
         v.literal("cancelled")
       )
     ),
+    imageUrls: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -79,6 +74,7 @@ export const createMessage = mutation({
       role: args.role,
       content: args.content,
       status: args.status,
+      imageUrls: args.imageUrls,
     });
 
     // Update conversation's updatedAt
@@ -1073,5 +1069,73 @@ export const updateE2BSandboxStatus = mutation({
         lastUsedAt: Date.now(),
       });
     }
+  },
+});
+
+export const createPreviewCapture = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    projectId: v.id("projects"),
+    viewport: v.optional(
+      v.object({
+        width: v.number(),
+        height: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    const now = Date.now();
+    return await ctx.db.insert("preview_captures", {
+      messageId: args.messageId,
+      projectId: args.projectId,
+      status: "pending",
+      viewport: args.viewport,
+      createdAt: now,
+    });
+  },
+});
+
+export const updatePreviewCaptureStatus = mutation({
+  args: {
+    internalKey: v.string(),
+    previewCaptureId: v.id("preview_captures"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    imageStorageId: v.optional(v.id("_storage")),
+    imageUrl: v.optional(v.string()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const patch: {
+      status: typeof args.status;
+      imageStorageId?: typeof args.imageStorageId;
+      imageUrl?: typeof args.imageUrl;
+      error?: typeof args.error;
+      durationMs?: typeof args.durationMs;
+    } = { status: args.status };
+
+    if (args.imageStorageId !== undefined) {
+      patch.imageStorageId = args.imageStorageId;
+    }
+    if (args.imageUrl !== undefined) {
+      patch.imageUrl = args.imageUrl;
+    }
+    if (args.error !== undefined) {
+      patch.error = args.error;
+    }
+    if (args.durationMs !== undefined) {
+      patch.durationMs = args.durationMs;
+    }
+
+    await ctx.db.patch(args.previewCaptureId, patch);
   },
 });

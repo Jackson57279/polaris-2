@@ -15,8 +15,7 @@ export { validateBuild };
 const URL_REGEX = /https?:\/\/[^\s]+/g;
 
 export const demoGenerate = inngest.createFunction(
-  { id: "demo-generate" },
-  { event: "demo/generate" },
+  { id: "demo-generate", triggers: [{ event: "demo/generate" }] },
   async ({ event, step }) => {
     const { prompt } = event.data as { prompt: string; };
 
@@ -56,8 +55,7 @@ export const demoGenerate = inngest.createFunction(
 );
 
 export const demoError = inngest.createFunction(
-  { id: "demo-error" },
-  { event: "demo/error" },
+  { id: "demo-error", triggers: [{ event: "demo/error" }] },
   async ({ step }) => {
     await step.run("fail", async () => {
       throw new Error("Inngest error: Background job failed!");

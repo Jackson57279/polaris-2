@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { CameraIcon, Loader2Icon, AlertCircleIcon, CheckCircleIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

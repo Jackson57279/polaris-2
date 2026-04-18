@@ -87,12 +87,12 @@ async function captureWithLocalPlaywright(
   waitForNetworkIdle: boolean,
   delayMs: number
 ): Promise<Buffer> {
-  let executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  let executablePath: string | undefined = process.env.PLAYWRIGHT_CHROMIUM_PATH;
   if (!executablePath) {
     try {
       executablePath = chromium.executablePath();
     } catch {
-      executablePath = null;
+      executablePath = undefined;
     }
   }
 
@@ -173,6 +173,7 @@ async function captureWithExternalAPI(
 export const capturePreview = inngest.createFunction(
   {
     id: "capture-preview",
+    triggers: [{ event: "preview/capture" }],
     concurrency: {
       key: "event.data.projectId",
       limit: 2,
@@ -183,9 +184,6 @@ export const capturePreview = inngest.createFunction(
         if: "event.data.messageId == async.data.messageId",
       },
     ],
-  },
-  {
-    event: "preview/capture",
   },
   async ({ event, step }) => {
     const {
@@ -284,7 +282,7 @@ export const capturePreview = inngest.createFunction(
           storageId,
         });
 
-        return { imageStorageId: storageId, imageUrl: url };
+        return { imageStorageId: storageId, imageUrl: url ?? undefined };
       });
 
       const durationMs = Date.now() - startTime;
@@ -303,7 +301,7 @@ export const capturePreview = inngest.createFunction(
 
       return {
         success: true,
-        imageUrl,
+        imageUrl: imageUrl ?? undefined,
         viewport,
         durationMs,
       };

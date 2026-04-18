@@ -32,8 +32,35 @@ export interface ExecutionResult {
 export interface ExecutionCallbacks {
   onStdout?: (data: { line: string; timestamp: number }) => void;
   onStderr?: (data: { line: string; timestamp: number }) => void;
-  onResult?: (result: any) => void;
-  onError?: (error: any) => void;
+  onResult?: (result: unknown) => void;
+  onError?: (error: unknown) => void;
+}
+
+function commandStreamCallbacks(callbacks?: ExecutionCallbacks) {
+  return {
+    onStdout: callbacks?.onStdout
+      ? (data: string) =>
+          callbacks.onStdout!({ line: data, timestamp: Date.now() })
+      : undefined,
+    onStderr: callbacks?.onStderr
+      ? (data: string) =>
+          callbacks.onStderr!({ line: data, timestamp: Date.now() })
+      : undefined,
+  };
+}
+
+async function findSandboxInfoForConversation(
+  conversationId: string
+): Promise<{ sandboxId: string; metadata: Record<string, string> } | undefined> {
+  const paginator = Sandbox.list();
+  while (paginator.hasNext) {
+    const page = await paginator.nextItems();
+    const found = page.find((s) => s.metadata?.conversationId === conversationId);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -45,11 +72,7 @@ export async function getOrCreateSandbox(
 ): Promise<Sandbox> {
   validateE2BConfig();
 
-  // List existing sandboxes to find one for this conversation
-  const sandboxes = await Sandbox.list();
-  const existing = sandboxes.find(
-    (s) => s.metadata?.conversationId === conversationId
-  );
+  const existing = await findSandboxInfoForConversation(conversationId);
 
   if (existing) {
     console.log(`[E2B] Reconnecting to sandbox ${existing.sandboxId}`);
@@ -97,12 +120,15 @@ export async function executeCode(
         onError: callbacks?.onError,
       });
 
+      const formatLogs = (value: string | string[]): string =>
+        typeof value === "string" ? value : value.join("\n");
+
       return {
-        stdout: execution.logs.stdout,
-        stderr: execution.logs.stderr,
+        stdout: formatLogs(execution.logs.stdout),
+        stderr: formatLogs(execution.logs.stderr),
         exitCode: execution.error ? 1 : 0,
         results: execution.results,
-        error: execution.error,
+        error: execution.error ?? null,
         executionTimeMs: Date.now() - startTime,
       };
     } else {
@@ -119,8 +145,7 @@ export async function executeCode(
         : `node ${filepath}`;
 
       const result = await sandbox.commands.run(command, {
-        onStdout: callbacks?.onStdout,
-        onStderr: callbacks?.onStderr,
+        ...commandStreamCallbacks(callbacks),
         timeoutMs: 5 * 60 * 1000, // 5 minute timeout for single execution
       });
 
@@ -162,8 +187,7 @@ export async function runCommand(
   callbacks?: ExecutionCallbacks
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const result = await sandbox.commands.run(command, {
-    onStdout: callbacks?.onStdout,
-    onStderr: callbacks?.onStderr,
+    ...commandStreamCallbacks(callbacks),
     timeoutMs: 5 * 60 * 1000,
   });
 
@@ -229,21 +253,21 @@ export async function listFiles(
   path: string = "/home/user"
 ): Promise<Array<{ name: string; type: "file" | "dir"; path: string }>> {
   const entries = await sandbox.files.list(path);
-  return entries.map((e) => ({
-    name: e.name,
-    type: e.type,
-    path: `${path}/${e.name}`,
-  }));
+  return entries.map((e) => {
+    const type: "file" | "dir" = e.type === "dir" ? "dir" : "file";
+    return {
+      name: e.name,
+      type,
+      path: `${path}/${e.name}`,
+    };
+  });
 }
 
 /**
  * Cleanup sandbox for a conversation
  */
 export async function cleanupSandbox(conversationId: string): Promise<void> {
-  const sandboxes = await Sandbox.list();
-  const sandbox = sandboxes.find(
-    (s) => s.metadata?.conversationId === conversationId
-  );
+  const sandbox = await findSandboxInfoForConversation(conversationId);
 
   if (sandbox) {
     console.log(`[E2B] Cleaning up sandbox ${sandbox.sandboxId}`);

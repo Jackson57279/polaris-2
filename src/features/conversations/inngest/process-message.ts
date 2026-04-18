@@ -15,13 +15,9 @@ import {
   CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT,
   PLAN_STEP_PROMPT,
-  SKILL_ROUTER_PROMPT,
   ENHANCE_SYSTEM_PROMPT,
   isUIGenerationRequest,
-  fetchDesignGuidelines,
-  fetchMinimalistGuidelines,
-  fetchTasteAdvancedGuidelines,
-  type DesignSkillType,
+  fetchImpeccableGuidelines,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { createReadFilesTool } from "./tools/read-files";
@@ -32,6 +28,8 @@ import { createCreateFolderTool } from "./tools/create-folder";
 import { createRenameFileTool } from "./tools/rename-file";
 import { createDeleteFilesTool } from "./tools/delete-files";
 import { createScrapeUrlsTool } from "./tools/scrape-urls";
+import { createGenerateImageTool } from "./tools/generate-image";
+import { createGenerateGradientTool } from "./tools/generate-gradient";
 import { runRepoResearch } from "./workers/repo-research";
 import { runExaResearch } from "./workers/exa-research";
 import { runReview } from "./workers/review";
@@ -85,6 +83,13 @@ const getToolLabel = (
       const urls = (input.urls as string[]) ?? [];
       return `Scrape ${urls.length} URL${urls.length !== 1 ? "s" : ""}`;
     }
+    case "generateImage": {
+      return "Generate image";
+    }
+    case "generateGradient": {
+      const style = (input.style as string) ?? "gradient";
+      return `Generate ${style} background`;
+    }
     default:
       return null;
   }
@@ -120,6 +125,7 @@ const FALLBACK_AGENT_RESPONSE =
 export const processMessage = inngest.createFunction(
   {
     id: "process-message",
+    triggers: [{ event: "message/sent" }],
     concurrency: {
       key: "event.data.conversationId",
       limit: 1,
@@ -145,9 +151,6 @@ export const processMessage = inngest.createFunction(
         });
       }
     },
-  },
-  {
-    event: "message/sent",
   },
   async ({ event, step }) => {
     const {
@@ -392,37 +395,16 @@ export const processMessage = inngest.createFunction(
     }
 
     // ──────────────────────────────────────────────
-    // Stage 4.5 — Design skill selection + injection
+    // Stage 4.5 — Impeccable design skill injection
     // ──────────────────────────────────────────────
 
     if (isUIGenerationRequest(workingMessage)) {
-      const skillType = await step.run("select-design-skill", async () => {
-        const result = await generateText({
-          model: createVercelAIModel("skill-router"),
-          prompt: `${SKILL_ROUTER_PROMPT} ${workingMessage}`,
-        });
-        try {
-          const parsed = JSON.parse(result.text.trim()) as { skill: DesignSkillType };
-          return parsed.skill;
-        } catch {
-          return "taste" as DesignSkillType;
-        }
+      const designGuidelines = await step.run("fetch-impeccable-skill", async () => {
+        return await fetchImpeccableGuidelines();
       });
 
-      if (skillType !== "none") {
-        const designGuidelines = await step.run("fetch-design-skill", async () => {
-          if (skillType === "minimalist") {
-            return await fetchMinimalistGuidelines();
-          } else if (skillType === "taste-advanced") {
-            return await fetchTasteAdvancedGuidelines();
-          } else {
-            return await fetchDesignGuidelines();
-          }
-        });
-
-        if (designGuidelines) {
-          systemPrompt += `\n\n<design_guidelines skill="${skillType}">\n${designGuidelines}\n</design_guidelines>`;
-        }
+      if (designGuidelines) {
+        systemPrompt += `\n\n<design_guidelines skill="impeccable">\n${designGuidelines}\n</design_guidelines>`;
       }
     }
 
@@ -444,6 +426,8 @@ export const processMessage = inngest.createFunction(
         createRenameFileTool({ internalKey, messageId }),
         createDeleteFilesTool({ internalKey, messageId }),
         createScrapeUrlsTool(),
+        createGenerateImageTool(),
+        createGenerateGradientTool({ projectId, internalKey, messageId }),
       ],
     });
 
