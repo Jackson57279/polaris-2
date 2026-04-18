@@ -9,6 +9,7 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { EXA_RESEARCH_PROMPT } from "../constants";
 import type { ExaResearchInput, ResearchArtifact } from "./types";
+import { extractJSONFromMarkdown } from "@/lib/utils";
 
 const MAX_RESULTS_PER_QUERY = 3;
 const MAX_CONTENT_LENGTH = 2000;
@@ -65,7 +66,8 @@ ${searchContext}`,
       });
 
       try {
-        artifact = JSON.parse(result.text) as ResearchArtifact;
+        const cleaned = extractJSONFromMarkdown(result.text);
+        artifact = JSON.parse(cleaned) as ResearchArtifact;
       } catch {
         artifact = {
           summary: result.text,

@@ -8,6 +8,7 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { REVIEW_PROMPT } from "../constants";
 import type { ReviewInput, ReviewArtifact } from "./types";
+import { extractJSONFromMarkdown } from "@/lib/utils";
 
 const MAX_FILES_TO_REVIEW = 10;
 const MAX_FILE_CONTENT_LENGTH = 4000;
@@ -65,7 +66,8 @@ ${fileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
 
   let artifact: ReviewArtifact;
   try {
-    artifact = JSON.parse(result.text) as ReviewArtifact;
+    const cleaned = extractJSONFromMarkdown(result.text);
+    artifact = JSON.parse(cleaned) as ReviewArtifact;
   } catch {
     artifact = { issues: [], suggestions: [result.text], quality: "good" as const };
   }

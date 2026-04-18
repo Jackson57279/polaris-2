@@ -8,6 +8,7 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { REPO_RESEARCH_PROMPT } from "../constants";
 import type { RepoResearchInput, ResearchArtifact } from "./types";
+import { extractJSONFromMarkdown } from "@/lib/utils";
 
 const MAX_KEY_FILES = 8;
 const MAX_FILE_CONTENT_LENGTH = 3000;
@@ -73,7 +74,8 @@ ${keyFileContents.map((f) => `--- ${f.name} ---\n${f.content}`).join("\n\n")}`,
 
   let artifact: ResearchArtifact;
   try {
-    artifact = JSON.parse(result.text) as ResearchArtifact;
+    const cleaned = extractJSONFromMarkdown(result.text);
+    artifact = JSON.parse(cleaned) as ResearchArtifact;
   } catch {
     artifact = { summary: result.text, relevantFiles: [] };
   }

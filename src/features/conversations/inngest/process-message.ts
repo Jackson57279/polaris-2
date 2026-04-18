@@ -19,6 +19,7 @@ import {
   isUIGenerationRequest,
   fetchImpeccableGuidelines,
 } from "./constants";
+import { extractJSONFromMarkdown } from "@/lib/utils";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { createReadFilesTool } from "./tools/read-files";
 import { createListFilesTool } from "./tools/list-files";
@@ -286,7 +287,8 @@ export const processMessage = inngest.createFunction(
       });
 
       try {
-        return JSON.parse(result.text) as AgentPlan;
+        const cleaned = extractJSONFromMarkdown(result.text);
+        return JSON.parse(cleaned) as AgentPlan;
       } catch {
         return {
           needsResearch: false,
