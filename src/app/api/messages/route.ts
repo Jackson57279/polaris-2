@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import ky from "ky";
 
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
@@ -13,7 +14,20 @@ const requestSchema = z.object({
   conversationId: z.string(),
   message: z.string(),
   imageUrls: z.array(z.string()).optional().default([]),
+  pdfUrls: z.array(z.string()).optional().default([]),
 });
+
+async function extractPdfText(pdfUrl: string): Promise<string> {
+  try {
+    const pdfBuffer = await ky.get(pdfUrl).arrayBuffer();
+    const pdfParse = await import("pdf-parse").then((m: any) => m.default || m);
+    const result = await pdfParse(Buffer.from(pdfBuffer));
+    return result.text;
+  } catch (error) {
+    console.error("Failed to extract PDF text:", error);
+    return "[Unable to extract text from PDF]";
+  }
+}
 
 export const maxDuration = 60;
 
@@ -34,7 +48,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { conversationId, message, imageUrls } = requestSchema.parse(body);
+  const { conversationId, message, imageUrls, pdfUrls } = requestSchema.parse(body);
 
   // Call convex mutation, query
   const conversation = await convex.query(api.system.getConversationById, {
@@ -80,13 +94,28 @@ export async function POST(request: Request) {
     );
   }
 
+  // Extract text from PDFs if any
+  let combinedMessage = message;
+  if (pdfUrls.length > 0) {
+    const pdfTexts = await Promise.all(
+      pdfUrls.map(async (url) => {
+        const text = await extractPdfText(url);
+        return `--- PDF Content ---\n${text}\n--- End PDF ---`;
+      })
+    );
+    
+    // Prepend PDF content to the user's message
+    const pdfContent = pdfTexts.join("\n\n");
+    combinedMessage = `${pdfContent}\n\n${message || "Please use the information from the PDF above."}`;
+  }
+
   // Create user message
   await convex.mutation(api.system.createMessage, {
     internalKey,
     conversationId: conversationId as Id<"conversations">,
     projectId,
     role: "user",
-    content: message,
+    content: combinedMessage,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
   });
 
@@ -110,7 +139,7 @@ export async function POST(request: Request) {
       messageId: assistantMessageId,
       conversationId,
       projectId,
-      message,
+      message: combinedMessage,
       imageUrls,
     },
   });

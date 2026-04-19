@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   CopyIcon,
   FilePlusIcon,
+  FileTextIcon,
   FolderPlusIcon,
   GlobeIcon,
   HistoryIcon,
@@ -193,6 +194,18 @@ function AttachImageButton() {
   );
 }
 
+function AttachPdfButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      onClick={() => attachments.openFileDialog()}
+      title="Attach PDF"
+    >
+      <FileTextIcon className="size-4" />
+    </PromptInputButton>
+  );
+}
+
 function EnhancePromptButton({
   input,
   onEnhanced,
@@ -246,7 +259,8 @@ export const ConversationSidebar = ({
     setPastConversationsOpen
   ] = useState(false);
 
-  const { startUpload, isUploading } = useUploadThing("imageUploader");
+  const { startUpload: startImageUpload, isUploading: isImageUploading } = useUploadThing("imageUploader");
+  const { startUpload: startPdfUpload, isUploading: isPdfUploading } = useUploadThing("pdfUploader");
 
   const createConversation = useCreateConversation();
   const conversations = useConversations(projectId);
@@ -266,7 +280,7 @@ export const ConversationSidebar = ({
     (msg) => msg.status === "processing"
   );
 
-  const isLoading = isProcessing || isUploading;
+  const isLoading = isProcessing || isImageUploading || isPdfUploading;
 
   const handleCancel = async () => {
     try {
@@ -309,8 +323,7 @@ export const ConversationSidebar = ({
       }
     }
 
-    // Upload any attached images via UploadThing
-    let imageUrls: string[] = [];
+    // Separate image and PDF files
     const imageFiles = message.files
       .filter((f) => f.mediaType?.startsWith("image/") && f.url)
       .map((f, i) =>
@@ -321,12 +334,36 @@ export const ConversationSidebar = ({
         )
       );
 
+    const pdfFiles = message.files
+      .filter((f) => f.mediaType === "application/pdf" && f.url)
+      .map((f) =>
+        dataUrlToFile(
+          f.url,
+          f.filename ?? "document.pdf",
+          "application/pdf"
+        )
+      );
+
+    // Upload images
+    let imageUrls: string[] = [];
     if (imageFiles.length > 0) {
       try {
-        const uploaded = await startUpload(imageFiles);
+        const uploaded = await startImageUpload(imageFiles);
         imageUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
       } catch {
         toast.error("Failed to upload image(s)");
+        return;
+      }
+    }
+
+    // Upload PDFs
+    let pdfUrls: string[] = [];
+    if (pdfFiles.length > 0) {
+      try {
+        const uploaded = await startPdfUpload(pdfFiles);
+        pdfUrls = uploaded?.map((f) => f.ufsUrl) ?? [];
+      } catch {
+        toast.error("Failed to upload PDF");
         return;
       }
     }
@@ -338,6 +375,7 @@ export const ConversationSidebar = ({
           conversationId,
           message: message.text,
           imageUrls,
+          pdfUrls,
         },
       });
     } catch {
@@ -404,7 +442,7 @@ export const ConversationSidebar = ({
         </Conversation>
         <div className="p-3">
           <PromptInput
-            accept="image/*"
+            accept="image/*,.pdf"
             multiple
             onSubmit={handleSubmit}
             className="mt-2"
@@ -426,6 +464,7 @@ export const ConversationSidebar = ({
             <PromptInputFooter>
               <PromptInputTools>
                 <AttachImageButton />
+                <AttachPdfButton />
                 <EnhancePromptButton input={input} onEnhanced={setInput} />
               </PromptInputTools>
               <PromptInputSubmit
