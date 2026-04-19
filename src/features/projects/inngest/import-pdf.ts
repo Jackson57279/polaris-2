@@ -1,6 +1,5 @@
 import { NonRetriableError } from "inngest";
 import ky from "ky";
-import pdfParse from "pdf-parse";
 
 import { convex } from "@/lib/convex-client";
 
@@ -45,6 +44,7 @@ export const importPdf = inngest.createFunction(
 
     const { text: pdfText } = await step.run("extract-pdf-text", async () => {
       const pdfBuffer = await ky.get(pdfUrl).arrayBuffer();
+      const pdfParse = await import("pdf-parse").then((m: any) => m.default || m);
       const result = await pdfParse(Buffer.from(pdfBuffer));
       return { text: result.text };
     });
