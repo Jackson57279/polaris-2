@@ -148,16 +148,18 @@ export function isUIGenerationRequest(message: string): boolean {
 }
 
 // Taste skills from leonxlnx/taste-skill collection
-// All skills except stitch-design-taste
 // Automatically fetched at runtime from GitHub
+// Skill name -> folder name mapping (folder names differ from skill names)
 const TASTE_SKILLS = {
-  "design-taste-frontend": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/design-taste-frontend/SKILL.md",
-  "high-end-visual-design": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/high-end-visual-design/SKILL.md",
-  "redesign-existing-projects": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/redesign-existing-projects/SKILL.md",
-  "full-output-enforcement": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/full-output-enforcement/SKILL.md",
-  "minimalist-ui": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/minimalist-ui/SKILL.md",
-  "industrial-brutalist-ui": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/industrial-brutalist-ui/SKILL.md",
-  "gpt-taste": "https://raw.githubusercontent.com/leonxlnx/taste-skill/main/skills/gpt-taste/SKILL.md",
+  "design-taste-frontend": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/taste-skill/SKILL.md",
+  "high-end-visual-design": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md",
+  "redesign-existing-projects": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/redesign-skill/SKILL.md",
+  "full-output-enforcement": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/output-skill/SKILL.md",
+  "minimalist-ui": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/minimalist-skill/SKILL.md",
+  "industrial-brutalist-ui": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/brutalist-skill/SKILL.md",
+  "gpt-taste": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/gpt-tasteskill/SKILL.md",
+  "soft-skill": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md",
+  "stitch-skill": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/stitch-skill/SKILL.md",
 } as const;
 
 type TasteSkillName = keyof typeof TASTE_SKILLS;
@@ -260,25 +262,83 @@ async function fetchSkill(name: TasteSkillName): Promise<string | null> {
   return content;
 }
 
-export async function fetchTasteGuidelines(): Promise<string | null> {
-  const skills = await Promise.all([
-    fetchSkill("design-taste-frontend"),
-    fetchSkill("high-end-visual-design"),
-    fetchSkill("redesign-existing-projects"),
-    fetchSkill("full-output-enforcement"),
-    fetchSkill("minimalist-ui"),
-    fetchSkill("industrial-brutalist-ui"),
-    fetchSkill("gpt-taste"),
-  ]);
+// Skill selection presets
+export const TASTE_SKILL_PRESETS = {
+  // All available skills
+  all: [
+    "design-taste-frontend",
+    "high-end-visual-design",
+    "redesign-existing-projects",
+    "full-output-enforcement",
+    "minimalist-ui",
+    "industrial-brutalist-ui",
+    "gpt-taste",
+  ] as TasteSkillName[],
+  // Prioritize minimalist and soft (clean, editorial aesthetic)
+  minimalist: [
+    "minimalist-ui",
+    "soft-skill",
+    "design-taste-frontend",
+    "full-output-enforcement",
+  ] as TasteSkillName[],
+  // Premium agency-level design
+  premium: [
+    "high-end-visual-design",
+    "soft-skill",
+    "design-taste-frontend",
+    "redesign-existing-projects",
+    "full-output-enforcement",
+  ] as TasteSkillName[],
+  // Raw industrial aesthetic
+  brutalist: [
+    "industrial-brutalist-ui",
+    "design-taste-frontend",
+    "full-output-enforcement",
+  ] as TasteSkillName[],
+} as const;
 
-  const validSkills = skills.filter((s): s is string => s !== null);
-  if (validSkills.length === 0) return null;
+export type TasteSkillPreset = keyof typeof TASTE_SKILL_PRESETS;
+
+/**
+ * Fetches taste design guidelines from specified skills
+ * @param preset - Which preset to use ('minimalist', 'premium', 'brutalist', or 'all')
+ * @param customSkills - Optional array of specific skill names to fetch (overrides preset)
+ * @returns Combined skill content or null if all fetches fail
+ */
+export async function fetchTasteGuidelines(
+  preset: TasteSkillPreset = "all",
+  customSkills?: TasteSkillName[]
+): Promise<string | null> {
+  const skillsToFetch = customSkills ?? TASTE_SKILL_PRESETS[preset];
+
+  console.log(`[TasteSkills] Fetching with preset: ${preset}, skills: ${skillsToFetch.join(", ")}`);
+
+  const results = await Promise.all(
+    skillsToFetch.map(async (name) => {
+      const content = await fetchSkill(name);
+      if (!content) {
+        console.warn(`[TasteSkills] Failed to fetch: ${name}`);
+      } else {
+        console.log(`[TasteSkills] Successfully fetched: ${name} (${content.length} chars)`);
+      }
+      return { name, content };
+    })
+  );
+
+  const validSkills = results.filter((r): r is { name: TasteSkillName; content: string } => r.content !== null);
+
+  if (validSkills.length === 0) {
+    console.error("[TasteSkills] All skill fetches failed");
+    return null;
+  }
+
+  console.log(`[TasteSkills] Successfully loaded ${validSkills.length}/${results.length} skills`);
 
   const combined = [
     "# Taste Design Skills",
     "",
     "## Core Design Guidelines",
-    ...validSkills.map((skill, i) => `### Skill ${i + 1}\n${skill}`),
+    ...validSkills.map((skill) => `### ${skill.name}\n${skill.content}`),
   ];
 
   return combined.join("\n\n");
