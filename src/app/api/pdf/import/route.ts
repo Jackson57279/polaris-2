@@ -6,7 +6,7 @@ import { convex } from "@/lib/convex-client";
 import { inngest } from "@/inngest/client";
 import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
 
-import { api } from "../../../../convex/_generated/api";
+import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
   pdfUrl: z.string().url(),
