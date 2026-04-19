@@ -28,7 +28,7 @@ export const ourFileRouter = {
       return { url: file.ufsUrl, name: file.name };
     }),
   pdfUploader: f({
-    pdf: { maxFileSize: "10MB", maxFileCount: 1 },
+    pdf: { maxFileSize: "64MB", maxFileCount: 1 },
   })
     .middleware(async () => {
       const { userId } = await auth();
