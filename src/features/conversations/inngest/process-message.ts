@@ -18,8 +18,7 @@ import {
   ENHANCE_SYSTEM_PROMPT,
   isUIGenerationRequest,
   fetchImpeccableGuidelines,
-  TASTE_SKILL_PRESETS,
-  type TasteSkillPreset,
+  resolveTasteInjection,
 } from "./constants";
 import { extractJSONFromMarkdown } from "@/lib/utils";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -48,45 +47,6 @@ interface MessageEvent {
   projectId: Id<"projects">;
   message: string;
   imageUrls?: string[];
-}
-
-/**
- * Detect the appropriate taste skill preset based on user message content
- * Returns the preset that best matches the user's design preferences
- */
-function detectTastePreset(message: string): TasteSkillPreset {
-  const lower = message.toLowerCase();
-
-  // Keywords for brutalist/industrial aesthetic
-  const brutalistKeywords = [
-    "brutalist", "industrial", "raw", "mechanical", "military",
-    "terminal", "monospace", "harsh", "aggressive", "grid",
-  ];
-
-  // Keywords for premium/high-end aesthetic
-  const premiumKeywords = [
-    "premium", "luxury", "high-end", "agency", "awwwards",
-    "cinematic", "motion", "animation", "glassmorphism", "3d",
-  ];
-
-  // Keywords for minimalist/clean aesthetic
-  const minimalistKeywords = [
-    "minimalist", "clean", "simple", "editorial", "bento",
-    "soft", "warm", "subtle", "elegant", "refined",
-    "notion-style", "linear-style", "apple-style",
-  ];
-
-  const hasBrutalist = brutalistKeywords.some(kw => lower.includes(kw));
-  const hasPremium = premiumKeywords.some(kw => lower.includes(kw));
-  const hasMinimalist = minimalistKeywords.some(kw => lower.includes(kw));
-
-  // Default to minimalist (clean, editorial aesthetic) as requested
-  if (hasBrutalist) return "brutalist";
-  if (hasPremium) return "premium";
-  if (hasMinimalist) return "minimalist";
-
-  // Default: use minimalist preset (prioritizes minimalist-ui and soft-skill)
-  return "minimalist";
 }
 
 const getToolLabel = (
@@ -441,17 +401,21 @@ export const processMessage = inngest.createFunction(
     // Stage 4.5 — Taste design skill injection
     // ──────────────────────────────────────────────
 
-    if (isUIGenerationRequest(workingMessage)) {
-      // Detect preferred design aesthetic from user message
-      const preset = detectTastePreset(workingMessage);
-
+    const tasteInjection = resolveTasteInjection(message, workingMessage);
+    if (tasteInjection.shouldInject) {
       const designGuidelines = await step.run("fetch-taste-skills", async () => {
-        console.log(`[ProcessMessage] Using taste preset: ${preset}`);
-        return await fetchImpeccableGuidelines(preset);
+        const custom = tasteInjection.customSkills?.join(",") ?? "";
+        console.log(
+          `[ProcessMessage] Taste preset=${tasteInjection.preset} customSkills=${custom || "preset-default"}`
+        );
+        return await fetchImpeccableGuidelines(
+          tasteInjection.preset,
+          tasteInjection.customSkills
+        );
       });
 
       if (designGuidelines) {
-        systemPrompt += `\n\n<design_guidelines skill="taste" preset="${preset}">\n${designGuidelines}\n</design_guidelines>`;
+        systemPrompt += `\n\n<design_guidelines skill="taste" preset="${tasteInjection.preset}">\n${designGuidelines}\n</design_guidelines>`;
       } else {
         console.warn("[ProcessMessage] No design guidelines fetched - taste skills unavailable");
       }

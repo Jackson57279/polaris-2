@@ -4,12 +4,12 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 export type AgentRole = "manager" | "research" | "review" | "title" | "skill-router" | "enhance";
 
 const MODEL_DEFAULTS: Record<AgentRole, string> = {
-  manager: "moonshotai/kimi-k2.5:nitro",
+  manager: "x-ai/grok-4.1-fast",
   research: "x-ai/grok-4.1-fast",
   review: "x-ai/grok-4.1-fast",
   title: "x-ai/grok-4.1-fast",
   "skill-router": "google/gemini-3.1-flash-lite-preview",
-  enhance: "moonshotai/kimi-k2.5:nitro",
+  enhance: "x-ai/grok-4.1-fast",
 };
 
 const ENV_KEYS: Record<AgentRole, string> = {

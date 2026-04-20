@@ -147,6 +147,35 @@ export function isUIGenerationRequest(message: string): boolean {
   return UI_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
+/**
+ * User asked for a repo taste / design skill by name (may not match UI_KEYWORDS alone).
+ */
+export function hasExplicitTasteSkillIntent(message: string): boolean {
+  const lower = message.toLowerCase();
+  if (
+    /\b(minimalist|minimal|brutalist|premium|luxury|soft|industrial)\s*[-_]?\s*(ui\s+)?skill\b/.test(
+      lower
+    )
+  ) {
+    return true;
+  }
+  if (/\bminimalist-ui\b/.test(lower)) return true;
+  if (/\btaste[-\s]?skill\b/.test(lower)) return true;
+  if (/\bdesign[-\s]?taste\b/.test(lower)) return true;
+  return false;
+}
+
+export function shouldInjectDesignGuidelines(
+  originalUserMessage: string,
+  postEnhancementMessage: string
+): boolean {
+  return (
+    isUIGenerationRequest(originalUserMessage) ||
+    isUIGenerationRequest(postEnhancementMessage) ||
+    hasExplicitTasteSkillIntent(originalUserMessage)
+  );
+}
+
 // Taste skills from leonxlnx/taste-skill collection
 // Automatically fetched at runtime from GitHub
 // Skill name -> folder name mapping (folder names differ from skill names)
@@ -162,7 +191,7 @@ const TASTE_SKILLS = {
   "stitch-skill": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/stitch-skill/SKILL.md",
 } as const;
 
-type TasteSkillName = keyof typeof TASTE_SKILLS;
+export type TasteSkillName = keyof typeof TASTE_SKILLS;
 
 const skillCache = new Map<TasteSkillName, { content: string; fetchedAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -298,6 +327,118 @@ export const TASTE_SKILL_PRESETS = {
 } as const;
 
 export type TasteSkillPreset = keyof typeof TASTE_SKILL_PRESETS;
+
+/**
+ * Infer aesthetic preset from free text (original + enhanced prompt).
+ */
+export function detectTastePreset(message: string): TasteSkillPreset {
+  const lower = message.toLowerCase();
+
+  const brutalistKeywords = [
+    "brutalist",
+    "industrial",
+    "raw",
+    "mechanical",
+    "military",
+    "terminal",
+    "monospace",
+    "harsh",
+    "aggressive",
+    "grid",
+  ];
+
+  const premiumKeywords = [
+    "premium",
+    "luxury",
+    "high-end",
+    "agency",
+    "awwwards",
+    "cinematic",
+    "motion",
+    "animation",
+    "glassmorphism",
+    "3d",
+  ];
+
+  const minimalistKeywords = [
+    "minimalist",
+    "clean",
+    "simple",
+    "editorial",
+    "bento",
+    "soft",
+    "warm",
+    "subtle",
+    "elegant",
+    "refined",
+    "notion-style",
+    "linear-style",
+    "apple-style",
+  ];
+
+  const hasBrutalist = brutalistKeywords.some((kw) => lower.includes(kw));
+  const hasPremium = premiumKeywords.some((kw) => lower.includes(kw));
+  const hasMinimalist = minimalistKeywords.some((kw) => lower.includes(kw));
+
+  if (hasBrutalist) return "brutalist";
+  if (hasPremium) return "premium";
+  if (hasMinimalist) return "minimalist";
+
+  return "minimalist";
+}
+
+function parseExclusiveSingleTasteSkill(original: string): TasteSkillName[] | undefined {
+  const m = original.match(
+    /\b(only|just)\s+(?:the\s+)?(minimalist|minimal|brutalist|industrial|premium|luxury|soft)\s*(?:ui\s+)?skill\b/i
+  );
+  if (!m) return undefined;
+  const kind = m[2].toLowerCase();
+  if (kind === "minimalist" || kind === "minimal") return ["minimalist-ui"];
+  if (kind === "brutalist") return ["industrial-brutalist-ui"];
+  if (kind === "industrial") return ["industrial-brutalist-ui"];
+  if (kind === "premium" || kind === "luxury") return ["high-end-visual-design"];
+  if (kind === "soft") return ["soft-skill"];
+  return undefined;
+}
+
+export type TasteInjectionResolution = {
+  shouldInject: boolean;
+  preset: TasteSkillPreset;
+  customSkills?: TasteSkillName[];
+};
+
+/**
+ * Decide whether to load taste skills and which preset / URLs to fetch.
+ * Uses the original user message for explicit skill phrases (enhancement often drops them).
+ */
+export function resolveTasteInjection(
+  originalUserMessage: string,
+  postEnhancementMessage: string
+): TasteInjectionResolution {
+  const shouldInject = shouldInjectDesignGuidelines(
+    originalUserMessage,
+    postEnhancementMessage
+  );
+
+  const exclusive = parseExclusiveSingleTasteSkill(originalUserMessage);
+  if (exclusive) {
+    const preset =
+      exclusive[0] === "industrial-brutalist-ui"
+        ? "brutalist"
+        : exclusive[0] === "high-end-visual-design"
+          ? "premium"
+          : exclusive[0] === "minimalist-ui"
+            ? "minimalist"
+            : "minimalist";
+    return { shouldInject, preset, customSkills: exclusive };
+  }
+
+  const combined = `${originalUserMessage}\n${postEnhancementMessage}`;
+  return {
+    shouldInject,
+    preset: detectTastePreset(combined),
+  };
+}
 
 /**
  * Fetches taste design guidelines from specified skills
