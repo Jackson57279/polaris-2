@@ -94,8 +94,8 @@ export const useWebContainer = ({
 
         setStatus("installing");
 
-        // Parse install command (default: npm install; WebContainers do not ship bun)
-        const installCmd = settings?.installCommand || "npm install";
+        // Parse install command (default: npm install with legacy-peer-deps for React 19 compat)
+        const installCmd = settings?.installCommand || "npm install --legacy-peer-deps";
         const [installBin, ...installArgs] = installCmd.split(" ");
         appendOutput(`$ ${installCmd}\n`)
         const installProcess = await container.spawn(installBin, installArgs);
