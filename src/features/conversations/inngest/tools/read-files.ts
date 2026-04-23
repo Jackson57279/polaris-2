@@ -5,8 +5,10 @@ import { convex } from "@/lib/convex-client";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { buildFilePathMap } from "./file-paths";
 
 interface ReadFilesToolOptions {
+  projectId: Id<"projects">;
   internalKey: string;
   messageId: Id<"messages">;
 }
@@ -17,7 +19,11 @@ const paramsSchema = z.object({
     .min(1, "Provide at least one file ID"),
 });
 
-export const createReadFilesTool = ({ internalKey, messageId }: ReadFilesToolOptions) => {
+export const createReadFilesTool = ({
+  projectId,
+  internalKey,
+  messageId,
+}: ReadFilesToolOptions) => {
   return createTool({
     name: "readFiles",
     description: "Read the content of files from the project. Returns file contents.",
@@ -34,28 +40,32 @@ export const createReadFilesTool = ({ internalKey, messageId }: ReadFilesToolOpt
 
       try {
         return await toolStep?.run("read-files", async () => {
-          const results: { id: string; name: string; content: string }[] = [];
+          const uniqueFileIds = [...new Set(fileIds)] as Id<"files">[];
+          const projectFiles = await convex.query(api.system.getProjectFiles, {
+            internalKey,
+            projectId,
+          });
+          const pathById = buildFilePathMap(projectFiles);
 
-          for (const fileId of fileIds) {
-            const file = await convex.query(api.system.getFileById, {
-              internalKey,
-              fileId: fileId as Id<"files">,
-            });
-
-            if (file && file.content) {
-              results.push({
-                id: file._id,
-                name: file.name,
-                content: file.content,
-              });
-            };
-          }
+          const results = projectFiles
+            .filter(
+              (file) =>
+                uniqueFileIds.includes(file._id) &&
+                file.type === "file" &&
+                typeof file.content === "string"
+            )
+            .map((file) => ({
+              id: file._id,
+              name: file.name,
+              path: pathById.get(file._id) ?? file.name,
+              content: file.content,
+            }));
 
           if (results.length === 0) {
             return "Error: No files found with provided IDs. Use listFiles to get valid fileIDs.";
           }
 
-          const fileNames = results.map(r => r.name);
+          const fileNames = results.map((r) => r.path);
           await convex.mutation(api.system.appendToolCall, {
             internalKey,
             messageId,
@@ -64,7 +74,7 @@ export const createReadFilesTool = ({ internalKey, messageId }: ReadFilesToolOpt
           }).catch(() => {});
 
           return JSON.stringify(results);
-        })
+        });
       } catch (error) {
         return `Error reading files: ${error instanceof Error ? error.message : "Unknown error"}`;
       }

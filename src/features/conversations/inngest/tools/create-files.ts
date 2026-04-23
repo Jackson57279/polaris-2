@@ -5,6 +5,7 @@ import { convex } from "@/lib/convex-client";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { buildFilePathMap } from "./file-paths";
 
 interface CreateFilesToolOptions {
   projectId: Id<"projects">;
@@ -58,6 +59,16 @@ export const createCreateFilesTool = ({
 
       try {
         return await toolStep?.run("create-files", async () => {
+          const projectFiles = await convex.query(api.system.getProjectFiles, {
+            internalKey,
+            projectId,
+          });
+          const pathById = buildFilePathMap(projectFiles);
+          const folderCache = new Map<string, Id<"files">>(
+            projectFiles
+              .filter((file) => file.type === "folder")
+              .map((file) => [pathById.get(file._id) ?? file.name, file._id])
+          );
           let resolvedParentId: Id<"files"> | undefined;
 
           if (parentId && parentId !== "") {
@@ -78,14 +89,12 @@ export const createCreateFilesTool = ({
             }
           }
 
-          const folderCache = new Map<string, Id<"files">>();
-
           async function ensureFolderPath(
             pathSegments: string[],
             baseParentId: Id<"files"> | undefined
           ): Promise<Id<"files">> {
             let currentParentId = baseParentId;
-            let currentPath = "";
+            let currentPath = baseParentId ? (pathById.get(baseParentId) ?? "") : "";
 
             for (const segment of pathSegments) {
               currentPath = currentPath ? `${currentPath}/${segment}` : segment;
@@ -114,7 +123,7 @@ export const createCreateFilesTool = ({
           }> = [];
 
           for (const file of files) {
-            const normalizedName = file.name
+            let normalizedName = file.name
               .replace(/^\/+/, "")
               .replace(/\/+/g, "/")
               .replace(/\/$/, "");
@@ -123,19 +132,34 @@ export const createCreateFilesTool = ({
               return `Error: Invalid file name "${file.name}". File name cannot be empty or just slashes.`;
             }
 
+            let baseParentId = resolvedParentId;
+            const parentPath = baseParentId ? pathById.get(baseParentId) : undefined;
+
+            if (parentPath && normalizedName.includes("/")) {
+              if (normalizedName === parentPath) {
+                return `Error: Invalid file name "${file.name}". It resolves to an existing folder path.`;
+              }
+
+              if (normalizedName.startsWith(`${parentPath}/`)) {
+                normalizedName = normalizedName.slice(parentPath.length + 1);
+              } else {
+                baseParentId = undefined;
+              }
+            }
+
             const segments = normalizedName.split("/");
 
             if (segments.length === 1) {
               transformedFiles.push({
                 name: segments[0],
                 content: file.content,
-                resolvedParentId,
+                resolvedParentId: baseParentId,
               });
             } else {
               const folderSegments = segments.slice(0, -1);
               const fileName = segments[segments.length - 1];
 
-              const fileFolderId = await ensureFolderPath(folderSegments, resolvedParentId);
+              const fileFolderId = await ensureFolderPath(folderSegments, baseParentId);
 
               transformedFiles.push({
                 name: fileName,

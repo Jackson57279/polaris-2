@@ -432,7 +432,7 @@ export const processMessage = inngest.createFunction(
       model: createAgentKitModel("manager"),
       tools: [
         createListFilesTool({ internalKey, projectId, messageId }),
-        createReadFilesTool({ internalKey, messageId }),
+        createReadFilesTool({ projectId, internalKey, messageId }),
         createUpdateFileTool({ internalKey, messageId }),
         createCreateFilesTool({ projectId, internalKey, messageId }),
         createCreateFolderTool({ projectId, internalKey, messageId }),
@@ -541,6 +541,8 @@ ${reviewResult.issues
     const hasFileChanges = toolCallRecords.some(
       (tc) =>
         tc.toolName === "createFiles" ||
+        tc.toolName === "generateGradient" ||
+        tc.toolName === "deleteFiles" ||
         tc.toolName === "updateFile" ||
         tc.toolName === "renameFile"
     );

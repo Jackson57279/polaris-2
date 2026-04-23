@@ -5,6 +5,7 @@ import { convex } from "@/lib/convex-client";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
+import { buildFilePathMap } from "./file-paths";
 
 interface ListFilesToolOptions {
   projectId: Id<"projects">;
@@ -37,9 +38,12 @@ export const createListFilesTool = ({
             return a.name.localeCompare(b.name);
           });
 
+          const pathById = buildFilePathMap(sorted);
+
           const fileList = sorted.map((f) => ({
             id: f._id,
             name: f.name,
+            path: pathById.get(f._id) ?? f.name,
             type: f.type,
             parentId: f.parentId ?? null,
           }));

@@ -21,7 +21,7 @@ export const createGenerateGradientTool = ({
   return createTool({
     name: "generateGradient",
     description:
-      "Generate a beautiful CSS gradient (mesh, aurora, noise, or aurora-flow) and save it to the project as a CSS file. Use this for hero backgrounds, section backgrounds, or atmospheric fills instead of flat colors or external images.",
+      "Generate a beautiful CSS gradient (mesh, aurora, noise, or aurora-flow) and save it to the project as a CSS file. Use this as a supporting asset for hero backgrounds, section backgrounds, or atmospheric fills, then continue updating the relevant page/component files to import and use it.",
     parameters: z.object({
       colors: z
         .array(z.string())
@@ -111,7 +111,7 @@ export const createGenerateGradientTool = ({
           label: `Generate ${style} gradient`,
         }).catch(() => {});
 
-        return `Created ${normalizedName} with class .${result.className}. Import it in your layout or page to use: <div className="${result.className}">...</div>`;
+        return `Created ${normalizedName} with class .${result.className}. This only adds the CSS asset, so continue by updating the relevant layout/page/component files to import and use it: <div className="${result.className}">...</div>`;
       });
     },
   });
