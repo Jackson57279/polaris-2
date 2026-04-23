@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     });
 
     const result = await generateText({
-      model: openrouter("moonshotai/kimi-k2.5:nitro"),
+      model: openrouter("moonshotai/kimi-k2.6"),
       system: ENHANCE_SYSTEM_PROMPT,
       prompt: `Here is the user's prompt to enhance:\n\n${prompt}`,
       temperature: 0.7,
