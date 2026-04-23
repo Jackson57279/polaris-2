@@ -402,20 +402,16 @@ export const processMessage = inngest.createFunction(
     // ──────────────────────────────────────────────
 
     const tasteInjection = resolveTasteInjection(message, workingMessage);
-    if (tasteInjection.shouldInject) {
-      const designGuidelines = await step.run("fetch-taste-skills", async () => {
-        const custom = tasteInjection.customSkills?.join(",") ?? "";
+    if (tasteInjection.shouldInject && tasteInjection.skill) {
+      const designGuidelines = await step.run("fetch-taste-skill", async () => {
         console.log(
-          `[ProcessMessage] Taste preset=${tasteInjection.preset} customSkills=${custom || "preset-default"}`
+          `[ProcessMessage] Loading taste skill: ${tasteInjection.skill}`
         );
-        return await fetchImpeccableGuidelines(
-          tasteInjection.preset,
-          tasteInjection.customSkills
-        );
+        return await fetchImpeccableGuidelines(tasteInjection.skill!);
       });
 
       if (designGuidelines) {
-        systemPrompt += `\n\n<design_guidelines skill="taste" preset="${tasteInjection.preset}">\n${designGuidelines}\n</design_guidelines>`;
+        systemPrompt += `\n\n<design_guidelines skill="${tasteInjection.skill}">\n${designGuidelines}\n</design_guidelines>`;
       } else {
         console.warn("[ProcessMessage] No design guidelines fetched - taste skills unavailable");
       }

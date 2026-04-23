@@ -283,7 +283,7 @@ async function fetchSkillFromUrl(url: string, cached: { content: string; fetched
   }
 }
 
-async function fetchSkill(name: TasteSkillName): Promise<string | null> {
+export async function fetchSkill(name: TasteSkillName): Promise<string | null> {
   const url = TASTE_SKILLS[name];
   const cached = skillCache.get(name);
   const content = await fetchSkillFromUrl(url, cached);
@@ -293,125 +293,14 @@ async function fetchSkill(name: TasteSkillName): Promise<string | null> {
   return content;
 }
 
-// Skill selection presets
-export const TASTE_SKILL_PRESETS = {
-  // All available skills
-  all: [
-    "design-taste-frontend",
-    "high-end-visual-design",
-    "redesign-existing-projects",
-    "full-output-enforcement",
-    "minimalist-ui",
-    "industrial-brutalist-ui",
-    "gpt-taste",
-  ] as TasteSkillName[],
-  // Prioritize minimalist and soft (clean, editorial aesthetic)
-  minimalist: [
-    "minimalist-ui",
-    "soft-skill",
-    "design-taste-frontend",
-    "full-output-enforcement",
-  ] as TasteSkillName[],
-  // Premium agency-level design
-  premium: [
-    "high-end-visual-design",
-    "soft-skill",
-    "design-taste-frontend",
-    "redesign-existing-projects",
-    "full-output-enforcement",
-  ] as TasteSkillName[],
-  // Raw industrial aesthetic
-  brutalist: [
-    "industrial-brutalist-ui",
-    "design-taste-frontend",
-    "full-output-enforcement",
-  ] as TasteSkillName[],
-} as const;
-
-export type TasteSkillPreset = keyof typeof TASTE_SKILL_PRESETS;
-
-/**
- * Infer aesthetic preset from free text (original + enhanced prompt).
- */
-export function detectTastePreset(message: string): TasteSkillPreset {
-  const lower = message.toLowerCase();
-
-  const brutalistKeywords = [
-    "brutalist",
-    "industrial",
-    "raw",
-    "mechanical",
-    "military",
-    "terminal",
-    "monospace",
-    "harsh",
-    "aggressive",
-    "grid",
-  ];
-
-  const premiumKeywords = [
-    "premium",
-    "luxury",
-    "high-end",
-    "agency",
-    "awwwards",
-    "cinematic",
-    "motion",
-    "animation",
-    "glassmorphism",
-    "3d",
-  ];
-
-  const minimalistKeywords = [
-    "minimalist",
-    "clean",
-    "simple",
-    "editorial",
-    "bento",
-    "soft",
-    "warm",
-    "subtle",
-    "elegant",
-    "refined",
-    "notion-style",
-    "linear-style",
-    "apple-style",
-  ];
-
-  const hasBrutalist = brutalistKeywords.some((kw) => lower.includes(kw));
-  const hasPremium = premiumKeywords.some((kw) => lower.includes(kw));
-  const hasMinimalist = minimalistKeywords.some((kw) => lower.includes(kw));
-
-  if (hasBrutalist) return "brutalist";
-  if (hasPremium) return "premium";
-  if (hasMinimalist) return "minimalist";
-
-  return "minimalist";
-}
-
-function parseExclusiveSingleTasteSkill(original: string): TasteSkillName[] | undefined {
-  const m = original.match(
-    /\b(only|just)\s+(?:the\s+)?(minimalist|minimal|brutalist|industrial|premium|luxury|soft)\s*(?:ui\s+)?skill\b/i
-  );
-  if (!m) return undefined;
-  const kind = m[2].toLowerCase();
-  if (kind === "minimalist" || kind === "minimal") return ["minimalist-ui"];
-  if (kind === "brutalist") return ["industrial-brutalist-ui"];
-  if (kind === "industrial") return ["industrial-brutalist-ui"];
-  if (kind === "premium" || kind === "luxury") return ["high-end-visual-design"];
-  if (kind === "soft") return ["soft-skill"];
-  return undefined;
-}
-
 export type TasteInjectionResolution = {
   shouldInject: boolean;
-  preset: TasteSkillPreset;
-  customSkills?: TasteSkillName[];
+  skill: TasteSkillName | null;
 };
 
 /**
- * Decide whether to load taste skills and which preset / URLs to fetch.
- * Uses the original user message for explicit skill phrases (enhancement often drops them).
+ * Decide which single taste skill to inject based on user message.
+ * Picks the best matching skill rather than loading multiple.
  */
 export function resolveTasteInjection(
   originalUserMessage: string,
@@ -422,69 +311,57 @@ export function resolveTasteInjection(
     postEnhancementMessage
   );
 
-  const exclusive = parseExclusiveSingleTasteSkill(originalUserMessage);
-  if (exclusive) {
-    const preset =
-      exclusive[0] === "industrial-brutalist-ui"
-        ? "brutalist"
-        : exclusive[0] === "high-end-visual-design"
-          ? "premium"
-          : exclusive[0] === "minimalist-ui"
-            ? "minimalist"
-            : "minimalist";
-    return { shouldInject, preset, customSkills: exclusive };
+  if (!shouldInject) {
+    return { shouldInject: false, skill: null };
   }
 
-  const combined = `${originalUserMessage}\n${postEnhancementMessage}`;
-  return {
-    shouldInject,
-    preset: detectTastePreset(combined),
-  };
+  // Check for explicit single skill requests first
+  const lower = originalUserMessage.toLowerCase();
+
+  // Explicit skill selection patterns
+  if (/\bbrutalist\b/.test(lower) || /\bindustrial\b/.test(lower)) {
+    return { shouldInject: true, skill: "industrial-brutalist-ui" };
+  }
+  if (/\bminimalist\b/.test(lower) || /\bminimal\b/.test(lower)) {
+    return { shouldInject: true, skill: "minimalist-ui" };
+  }
+  if (/\bpremium\b/.test(lower) || /\bluxury\b/.test(lower) || /\bhigh-end\b/.test(lower)) {
+    return { shouldInject: true, skill: "high-end-visual-design" };
+  }
+  if (/\bredesign\b/.test(lower)) {
+    return { shouldInject: true, skill: "redesign-existing-projects" };
+  }
+  if (/\boutput\b/.test(lower) || /\bfull\b/.test(lower)) {
+    return { shouldInject: true, skill: "full-output-enforcement" };
+  }
+  if (/\bdesign\s*taste\b/.test(lower) || /\bfrontend\b/.test(lower)) {
+    return { shouldInject: true, skill: "design-taste-frontend" };
+  }
+
+  // Default to design-taste-frontend for UI generation requests
+  return { shouldInject: true, skill: "design-taste-frontend" };
 }
 
 /**
- * Fetches taste design guidelines from specified skills
- * @param preset - Which preset to use ('minimalist', 'premium', 'brutalist', or 'all')
- * @param customSkills - Optional array of specific skill names to fetch (overrides preset)
- * @returns Combined skill content or null if all fetches fail
+ * Fetches a single taste design skill
+ * @param skill - The skill name to fetch
+ * @returns Skill content or null if fetch fails
  */
 export async function fetchTasteGuidelines(
-  preset: TasteSkillPreset = "all",
-  customSkills?: TasteSkillName[]
+  skill: TasteSkillName
 ): Promise<string | null> {
-  const skillsToFetch = customSkills ?? TASTE_SKILL_PRESETS[preset];
+  console.log(`[TasteSkills] Fetching single skill: ${skill}`);
 
-  console.log(`[TasteSkills] Fetching with preset: ${preset}, skills: ${skillsToFetch.join(", ")}`);
+  const content = await fetchSkill(skill);
 
-  const results = await Promise.all(
-    skillsToFetch.map(async (name) => {
-      const content = await fetchSkill(name);
-      if (!content) {
-        console.warn(`[TasteSkills] Failed to fetch: ${name}`);
-      } else {
-        console.log(`[TasteSkills] Successfully fetched: ${name} (${content.length} chars)`);
-      }
-      return { name, content };
-    })
-  );
-
-  const validSkills = results.filter((r): r is { name: TasteSkillName; content: string } => r.content !== null);
-
-  if (validSkills.length === 0) {
-    console.error("[TasteSkills] All skill fetches failed");
+  if (!content) {
+    console.error(`[TasteSkills] Failed to fetch skill: ${skill}`);
     return null;
   }
 
-  console.log(`[TasteSkills] Successfully loaded ${validSkills.length}/${results.length} skills`);
+  console.log(`[TasteSkills] Successfully fetched: ${skill} (${content.length} chars)`);
 
-  const combined = [
-    "# Taste Design Skills",
-    "",
-    "## Core Design Guidelines",
-    ...validSkills.map((skill) => `### ${skill.name}\n${skill.content}`),
-  ];
-
-  return combined.join("\n\n");
+  return content;
 }
 
 // Backward compatibility alias
