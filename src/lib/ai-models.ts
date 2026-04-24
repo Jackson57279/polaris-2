@@ -3,8 +3,13 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 export type AgentRole = "manager" | "research" | "review" | "title" | "skill-router" | "enhance";
 
+const MANAGER_MODELS = [
+  "deepseek/deepseek-v4-pro",
+  "moonshotai/kimi-k2.6",
+];
+
 const MODEL_DEFAULTS: Record<AgentRole, string> = {
-  manager: "deepseek/deepseek-v4-pro",
+  manager: MANAGER_MODELS[0],
   research: "x-ai/grok-4.1-fast",
   review: "x-ai/grok-4.1-fast",
   title: "x-ai/grok-4.1-fast",
@@ -26,6 +31,10 @@ export function getModelId(role: AgentRole): string {
   if (envValue) return envValue;
   if (role === "manager" && process.env.POLARIS_CODING_MODEL) {
     return process.env.POLARIS_CODING_MODEL;
+  }
+  if (role === "manager") {
+    const randomIndex = Math.floor(Math.random() * MANAGER_MODELS.length);
+    return MANAGER_MODELS[randomIndex];
   }
   return MODEL_DEFAULTS[role];
 }
