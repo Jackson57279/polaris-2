@@ -124,6 +124,27 @@ const extractAssistantText = (messages: Message[]): string | null => {
 const FALLBACK_AGENT_RESPONSE =
   "I processed your request, but I wasn't able to produce a final text reply. Please try again or ask me to summarize the latest changes.";
 
+const createSkillExecutionPrompt = (skill: string, guidelines: string) =>
+  [
+    `<active_skill name="${skill}">`,
+    "The following skill is active for this request. Treat it as binding " +
+      "execution guidance, not optional context.",
+    "",
+    "Apply the skill in every design and implementation decision. If the " +
+      "skill mentions generic coding tools or commands that Polaris does " +
+      "not provide, translate the intent to Polaris tools:",
+    "- inspect files with listFiles/readFiles",
+    "- create or update code with createFiles/updateFile",
+    "- verify project structure with listFiles",
+    "",
+    "When there is a conflict, Polaris file-operation rules and the user's " +
+      "explicit request win. Otherwise, follow the skill's visual, " +
+      "architectural, responsiveness, accessibility, and anti-slop constraints.",
+    "",
+    guidelines,
+    "</active_skill>",
+  ].join("\n");
+
 export const processMessage = inngest.createFunction(
   {
     id: "process-message",
@@ -401,6 +422,7 @@ export const processMessage = inngest.createFunction(
     // Stage 4.5 — Taste design skill injection
     // ──────────────────────────────────────────────
 
+    let activeTasteSkill: string | null = null;
     const tasteInjection = resolveTasteInjection(message, workingMessage);
     if (tasteInjection.shouldInject && tasteInjection.skill) {
       const designGuidelines = await step.run("fetch-taste-skill", async () => {
@@ -411,9 +433,15 @@ export const processMessage = inngest.createFunction(
       });
 
       if (designGuidelines) {
-        systemPrompt += `\n\n<design_guidelines skill="${tasteInjection.skill}">\n${designGuidelines}\n</design_guidelines>`;
+        activeTasteSkill = tasteInjection.skill;
+        systemPrompt += `\n\n${createSkillExecutionPrompt(
+          tasteInjection.skill,
+          designGuidelines
+        )}`;
       } else {
-        console.warn("[ProcessMessage] No design guidelines fetched - taste skills unavailable");
+        console.warn(
+          "[ProcessMessage] No design guidelines fetched - taste skills unavailable"
+        );
       }
     }
 
@@ -459,6 +487,12 @@ export const processMessage = inngest.createFunction(
     });
 
     let fullMessage = workingMessage;
+    if (activeTasteSkill) {
+      fullMessage +=
+        `\n\nActive skill: ${activeTasteSkill}. ` +
+        "Use the fetched skill as binding guidance for this request; " +
+        "do not treat it as optional background context.";
+    }
     if (imageUrls && imageUrls.length > 0) {
       fullMessage += `\n\nReference images provided by the user:\n${imageUrls
         .map((url, i) => `${i + 1}. ${url}`)

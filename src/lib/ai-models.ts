@@ -4,6 +4,9 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 export type AgentRole = "manager" | "research" | "review" | "title" | "skill-router" | "enhance";
 
 const MANAGER_MODELS = [
+  // Prefer DeepSeek for long coding loops while still sampling Kimi sometimes.
+  "deepseek/deepseek-v4-pro",
+  "deepseek/deepseek-v4-pro",
   "deepseek/deepseek-v4-pro",
   "moonshotai/kimi-k2.6",
 ];
