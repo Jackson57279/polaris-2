@@ -70,7 +70,7 @@
         "date-fns": "^4.1.0",
         "embla-carousel-react": "^8.6.0",
         "exa-js": "^2.11.0",
-        "inngest": "^4.1.2",
+        "inngest": "^4.2.4",
         "input-otp": "^1.4.2",
         "isbinaryfile": "^6.0.0",
         "ky": "^1.14.3",
@@ -1841,7 +1841,7 @@
 
     "inline-style-parser": ["inline-style-parser@0.2.7", "", {}, "sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA=="],
 
-    "inngest": ["inngest@4.2.2", "", { "dependencies": { "@bufbuild/protobuf": "^2.2.3", "@inngest/ai": "^0.1.3", "@jpwilliams/waitgroup": "^2.1.1", "@opentelemetry/api": "^1.9.0", "@opentelemetry/auto-instrumentations-node": ">=0.66.0 <1.0.0", "@opentelemetry/context-async-hooks": ">=2.0.0 <3.0.0", "@opentelemetry/exporter-trace-otlp-http": ">=0.200.0 <0.300.0", "@opentelemetry/instrumentation": ">=0.200.0 <0.300.0", "@opentelemetry/resources": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-trace-base": ">=2.0.0 <3.0.0", "@standard-schema/spec": "^1.0.0", "@traceloop/instrumentation-anthropic": "^0.20.0", "@types/debug": "^4.1.12", "@types/ms": "~2.1.0", "canonicalize": "^1.0.8", "cross-fetch": "^4.0.0", "debug": "^4.3.4", "hash.js": "^1.1.7", "json-stringify-safe": "^5.0.1", "ms": "^2.1.3", "serialize-error-cjs": "^0.1.3", "temporal-polyfill": "^0.2.5", "ulid": "^2.3.0", "zod": "^3.25.0" }, "peerDependencies": { "@sveltejs/kit": ">=1.27.3", "@vercel/node": ">=2.15.9", "aws-lambda": ">=1.0.7", "express": ">=4.19.2", "fastify": ">=4.21.0", "h3": ">=1.8.1", "hono": ">=4.2.7", "koa": ">=2.14.2", "next": ">=12.0.0", "react": ">=18.0.0", "typescript": ">=5.8.0" }, "optionalPeers": ["@sveltejs/kit", "@vercel/node", "aws-lambda", "express", "fastify", "h3", "hono", "koa", "next", "react", "typescript"] }, "sha512-GcpJXYAQQxj8gOeIwfssjxlqNHA6/5LEbLjQOXs7usxR3q2jn14DMr9/8jGqidJGgiCqt4TH7nBHkAtyme8TKg=="],
+    "inngest": ["inngest@4.2.4", "", { "dependencies": { "@bufbuild/protobuf": "^2.2.3", "@inngest/ai": "^0.1.3", "@jpwilliams/waitgroup": "^2.1.1", "@opentelemetry/api": "^1.9.0", "@opentelemetry/auto-instrumentations-node": ">=0.66.0 <1.0.0", "@opentelemetry/context-async-hooks": ">=2.0.0 <3.0.0", "@opentelemetry/exporter-trace-otlp-http": ">=0.200.0 <0.300.0", "@opentelemetry/instrumentation": ">=0.200.0 <0.300.0", "@opentelemetry/resources": ">=2.0.0 <3.0.0", "@opentelemetry/sdk-trace-base": ">=2.0.0 <3.0.0", "@standard-schema/spec": "^1.0.0", "@traceloop/instrumentation-anthropic": "^0.20.0", "@types/debug": "^4.1.12", "@types/ms": "~2.1.0", "canonicalize": "^1.0.8", "cross-fetch": "^4.0.0", "debug": "^4.3.4", "hash.js": "^1.1.7", "json-stringify-safe": "^5.0.1", "ms": "^2.1.3", "serialize-error-cjs": "^0.1.3", "temporal-polyfill": "^0.2.5", "ulid": "^2.3.0", "zod": "^3.25.0" }, "peerDependencies": { "@sveltejs/kit": ">=1.27.3", "@vercel/node": ">=2.15.9", "aws-lambda": ">=1.0.7", "express": ">=4.19.2", "fastify": ">=4.21.0", "h3": ">=1.8.1", "hono": ">=4.2.7", "koa": ">=2.14.2", "next": ">=12.0.0", "react": ">=18.0.0", "typescript": ">=5.8.0" }, "optionalPeers": ["@sveltejs/kit", "@vercel/node", "aws-lambda", "express", "fastify", "h3", "hono", "koa", "next", "react", "typescript"] }, "sha512-MBFcRhhQ+dcGHLYCbIcMYxiAZCxzfAx0+3b/euYQKc7MK3rOnNHaNHuF2e0WsT13oWJiGzjuC3T4Nocggmh5WQ=="],
 
     "input-otp": ["input-otp@1.4.2", "", { "peerDependencies": { "react": "^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc", "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0.0 || ^19.0.0-rc" } }, "sha512-l3jWwYNvrEa6NTCt7BECfCm48GvwuZzkoeG3gBL2w4CHeOXW3eKFmf9UNYkNfYc3mxMrthMnxjIE07MT0zLBQA=="],
 

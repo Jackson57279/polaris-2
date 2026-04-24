@@ -1,0 +1,12 @@
+2026-04-23 01:41:08,539 - proxmox-mcp.proxmox - INFO - Connecting to Proxmox host: 192.168.1.150
+2026-04-23 01:41:08,581 - proxmox-mcp.proxmox - INFO - Successfully connected to Proxmox API
+2026-04-23 01:41:08,586 - proxmox-mcp - INFO - Starting MCP server...
+2026-04-23 01:41:08,598 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-23 01:41:08,607 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2026-04-23 01:41:08,607 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2026-04-24 03:34:36,367 - proxmox-mcp.proxmox - INFO - Connecting to Proxmox host: 192.168.1.150
+2026-04-24 03:34:37,859 - proxmox-mcp.proxmox - ERROR - Failed to connect to Proxmox: HTTPSConnectionPool(host='192.168.1.150', port=8006): Max retries exceeded with url: /api2/json/version (Caused by NewConnectionError("HTTPSConnection(host='192.168.1.150', port=8006): Failed to establish a new connection: [Errno 113] No route to host"))
+2026-04-24 04:31:22,999 - proxmox-mcp.proxmox - INFO - Connecting to Proxmox host: 192.168.1.150
+2026-04-24 04:31:24,447 - proxmox-mcp.proxmox - ERROR - Failed to connect to Proxmox: HTTPSConnectionPool(host='192.168.1.150', port=8006): Max retries exceeded with url: /api2/json/version (Caused by NewConnectionError("HTTPSConnection(host='192.168.1.150', port=8006): Failed to establish a new connection: [Errno 113] No route to host"))
+2026-04-24 04:38:43,487 - proxmox-mcp.proxmox - INFO - Connecting to Proxmox host: 192.168.1.150
+2026-04-24 04:38:44,800 - proxmox-mcp.proxmox - ERROR - Failed to connect to Proxmox: HTTPSConnectionPool(host='192.168.1.150', port=8006): Max retries exceeded with url: /api2/json/version (Caused by NewConnectionError("HTTPSConnection(host='192.168.1.150', port=8006): Failed to establish a new connection: [Errno 113] No route to host"))
