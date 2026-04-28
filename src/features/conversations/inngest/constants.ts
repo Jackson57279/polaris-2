@@ -178,22 +178,68 @@ export function shouldInjectDesignGuidelines(
   );
 }
 
-// Taste skills from leonxlnx/taste-skill collection
-// Automatically fetched at runtime from GitHub
-// Skill name -> folder name mapping (folder names differ from skill names)
-const TASTE_SKILLS = {
-  "design-taste-frontend": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/taste-skill/SKILL.md",
-  "high-end-visual-design": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md",
-  "redesign-existing-projects": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/redesign-skill/SKILL.md",
-  "full-output-enforcement": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/output-skill/SKILL.md",
-  "minimalist-ui": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/minimalist-skill/SKILL.md",
-  "industrial-brutalist-ui": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/brutalist-skill/SKILL.md",
-  "gpt-taste": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/gpt-tasteskill/SKILL.md",
-  "soft-skill": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/soft-skill/SKILL.md",
-  "stitch-skill": "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills/stitch-skill/SKILL.md",
+// Taste skills from https://skills.sh/leonxlnx/taste-skill
+// Automatically fetched at runtime from GitHub at request time.
+// The keys match the public skill names on skills.sh; the values are the
+// canonical raw URLs in the upstream Leonxlnx/taste-skill repo.
+const TASTE_SKILL_REPO_BASE =
+  "https://raw.githubusercontent.com/Leonxlnx/taste-skill/main/skills";
+
+export const TASTE_SKILLS = {
+  "design-taste-frontend": {
+    url: `${TASTE_SKILL_REPO_BASE}/taste-skill/SKILL.md`,
+    description:
+      "Default premium frontend taste skill. Layout, typography, color, spacing, and motion. Use for general 'make this look great' UI work when no other style is requested.",
+  },
+  "gpt-taste": {
+    url: `${TASTE_SKILL_REPO_BASE}/gpt-tasteskill/SKILL.md`,
+    description:
+      "Awwwards-tier landing pages with GSAP motion. Use for marketing sites, hero sections, or any explicit 'cinematic / premium / award winning' request.",
+  },
+  "image-to-code": {
+    url: `${TASTE_SKILL_REPO_BASE}/image-to-code-skill/SKILL.md`,
+    description:
+      "Reads provided reference images and re-implements them in code. Use when the user attaches screenshots, Figma exports, or links to a specific design they want matched.",
+  },
+  "redesign-existing-projects": {
+    url: `${TASTE_SKILL_REPO_BASE}/redesign-skill/SKILL.md`,
+    description:
+      "Audits existing UI and rewrites it to a higher quality bar. Use for explicit 'redesign / revamp / make this prettier / fix the design' requests on a project that already has files.",
+  },
+  "high-end-visual-design": {
+    url: `${TASTE_SKILL_REPO_BASE}/soft-skill/SKILL.md`,
+    description:
+      "Soft, expensive, premium visual look — heavy whitespace, depth, smooth animation. Use when the user asks for 'soft / luxury / premium / high-end / Apple-style / Stripe-style'.",
+  },
+  "minimalist-ui": {
+    url: `${TASTE_SKILL_REPO_BASE}/minimalist-skill/SKILL.md`,
+    description:
+      "Editorial Notion / Linear style. Strict monochrome. Use when the user asks for 'minimalist / clean / editorial / monochrome / Notion-style / Linear-style'.",
+  },
+  "industrial-brutalist-ui": {
+    url: `${TASTE_SKILL_REPO_BASE}/brutalist-skill/SKILL.md`,
+    description:
+      "Raw mechanical Swiss brutalism, harsh grids, mono type. Use when the user asks for 'brutalist / industrial / raw / terminal / harsh'.",
+  },
+  "stitch-design-taste": {
+    url: `${TASTE_SKILL_REPO_BASE}/stitch-skill/SKILL.md`,
+    description:
+      "Google-Stitch-compatible semantic UI rules. Use when the user references Stitch or wants a Stitch-friendly component layout.",
+  },
+  "full-output-enforcement": {
+    url: `${TASTE_SKILL_REPO_BASE}/output-skill/SKILL.md`,
+    description:
+      "Anti-laziness skill. Forbids placeholder comments and unfinished code. Use when the previous response was incomplete, used placeholders, or the user complains about lazy output.",
+  },
 } as const;
 
 export type TasteSkillName = keyof typeof TASTE_SKILLS;
+
+export const TASTE_SKILL_NAMES = Object.keys(TASTE_SKILLS) as TasteSkillName[];
+
+export function isTasteSkillName(value: string): value is TasteSkillName {
+  return value in TASTE_SKILLS;
+}
 
 const skillCache = new Map<TasteSkillName, { content: string; fetchedAt: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -284,7 +330,7 @@ async function fetchSkillFromUrl(url: string, cached: { content: string; fetched
 }
 
 export async function fetchSkill(name: TasteSkillName): Promise<string | null> {
-  const url = TASTE_SKILLS[name];
+  const { url } = TASTE_SKILLS[name];
   const cached = skillCache.get(name);
   const content = await fetchSkillFromUrl(url, cached);
   if (content) {
@@ -296,51 +342,92 @@ export async function fetchSkill(name: TasteSkillName): Promise<string | null> {
 export type TasteInjectionResolution = {
   shouldInject: boolean;
   skill: TasteSkillName | null;
+  reason: string;
 };
 
 /**
- * Decide which single taste skill to inject based on user message.
- * Picks the best matching skill rather than loading multiple.
+ * Quick syntactic guess from the user's message. Does NOT decide on its own —
+ * it just gives the AI router a strong hint when the user explicitly named a
+ * style (e.g. "brutalist landing page"). Returns null if there is no obvious
+ * match, in which case the AI router decides freely.
  */
-export function resolveTasteInjection(
-  originalUserMessage: string,
-  postEnhancementMessage: string
-): TasteInjectionResolution {
-  const shouldInject = shouldInjectDesignGuidelines(
-    originalUserMessage,
-    postEnhancementMessage
-  );
+export function guessTasteSkillFromMessage(
+  message: string
+): TasteSkillName | null {
+  const lower = message.toLowerCase();
 
-  if (!shouldInject) {
-    return { shouldInject: false, skill: null };
-  }
-
-  // Check for explicit single skill requests first
-  const lower = originalUserMessage.toLowerCase();
-
-  // Explicit skill selection patterns
   if (/\bbrutalist\b/.test(lower) || /\bindustrial\b/.test(lower)) {
-    return { shouldInject: true, skill: "industrial-brutalist-ui" };
+    return "industrial-brutalist-ui";
   }
-  if (/\bminimalist\b/.test(lower) || /\bminimal\b/.test(lower)) {
-    return { shouldInject: true, skill: "minimalist-ui" };
+  if (/\bminimalist\b/.test(lower) || /\beditorial\b/.test(lower)) {
+    return "minimalist-ui";
   }
-  if (/\bpremium\b/.test(lower) || /\bluxury\b/.test(lower) || /\bhigh-end\b/.test(lower)) {
-    return { shouldInject: true, skill: "high-end-visual-design" };
+  if (
+    /\bpremium\b/.test(lower) ||
+    /\bluxury\b/.test(lower) ||
+    /\bhigh[-\s]?end\b/.test(lower) ||
+    /\bsoft\s*ui\b/.test(lower) ||
+    /\bapple[-\s]?style\b/.test(lower) ||
+    /\bstripe[-\s]?style\b/.test(lower)
+  ) {
+    return "high-end-visual-design";
   }
-  if (/\bredesign\b/.test(lower)) {
-    return { shouldInject: true, skill: "redesign-existing-projects" };
+  if (/\bredesign\b/.test(lower) || /\brevamp\b/.test(lower)) {
+    return "redesign-existing-projects";
   }
-  if (/\boutput\b/.test(lower) || /\bfull\b/.test(lower)) {
-    return { shouldInject: true, skill: "full-output-enforcement" };
+  if (/\bawwwards?\b/.test(lower) || /\bcinematic\b/.test(lower)) {
+    return "gpt-taste";
   }
-  if (/\bdesign\s*taste\b/.test(lower) || /\bfrontend\b/.test(lower)) {
-    return { shouldInject: true, skill: "design-taste-frontend" };
+  if (/\bstitch\b/.test(lower)) {
+    return "stitch-design-taste";
   }
-
-  // Default to design-taste-frontend for UI generation requests
-  return { shouldInject: true, skill: "design-taste-frontend" };
+  if (/\bdesign\s*taste\b/.test(lower) || /\btaste[-\s]?skill\b/.test(lower)) {
+    return "design-taste-frontend";
+  }
+  return null;
 }
+
+/**
+ * Returns true when there's any signal at all that this request might benefit
+ * from a taste skill (UI keywords, explicit skill mentions, image attachments,
+ * or generic "build/design/make" verbs). The AI router will still decide for
+ * sure, but this avoids spending router tokens on pure debugging questions.
+ */
+export function mayBenefitFromTasteSkill(
+  originalUserMessage: string,
+  postEnhancementMessage: string,
+  hasImages: boolean
+): boolean {
+  if (hasImages) return true;
+  if (
+    isUIGenerationRequest(originalUserMessage) ||
+    isUIGenerationRequest(postEnhancementMessage) ||
+    hasExplicitTasteSkillIntent(originalUserMessage)
+  ) {
+    return true;
+  }
+  const lower = originalUserMessage.toLowerCase();
+  return /\b(build|create|make|design|generate|scaffold|implement)\b/.test(lower);
+}
+
+export const SKILL_ROUTER_PROMPT = `You are the taste-skill router for Polaris, an AI coding assistant.
+
+Your job: pick AT MOST ONE skill from the catalog below to inject as binding design guidance for the coding agent. If no skill fits — for example pure backend, debugging, or text edits — return "none".
+
+Catalog (skill name → when to use):
+${TASTE_SKILL_NAMES.map((n) => `- ${n}: ${TASTE_SKILLS[n].description}`).join("\n")}
+
+Rules:
+- Pick the BEST single skill, not multiple.
+- If the user explicitly named a style (brutalist, minimalist, premium, redesign, awwwards, stitch), respect it.
+- If reference images are attached, prefer "image-to-code".
+- If the user asks to "redesign" or "fix the design" of existing files, prefer "redesign-existing-projects".
+- If the previous assistant turn was incomplete or the user complains about laziness/placeholders, prefer "full-output-enforcement".
+- If nothing in the message is UI / frontend / design related, return "none".
+- Never invent skill names. Only return values from the catalog or "none".
+
+Return ONLY a JSON object — no prose, no markdown:
+{"skill": "<one of the catalog keys or 'none'>", "reason": "<one short sentence>"}`;
 
 /**
  * Fetches a single taste design skill
@@ -350,7 +437,7 @@ export function resolveTasteInjection(
 export async function fetchTasteGuidelines(
   skill: TasteSkillName
 ): Promise<string | null> {
-  console.log(`[TasteSkills] Fetching single skill: ${skill}`);
+  console.log(`[TasteSkills] Fetching skill: ${skill}`);
 
   const content = await fetchSkill(skill);
 
@@ -359,7 +446,9 @@ export async function fetchTasteGuidelines(
     return null;
   }
 
-  console.log(`[TasteSkills] Successfully fetched: ${skill} (${content.length} chars)`);
+  console.log(
+    `[TasteSkills] Successfully fetched: ${skill} (${content.length} chars)`
+  );
 
   return content;
 }

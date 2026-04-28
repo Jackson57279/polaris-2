@@ -17,8 +17,8 @@ import {
   PLAN_STEP_PROMPT,
   ENHANCE_SYSTEM_PROMPT,
   isUIGenerationRequest,
-  fetchImpeccableGuidelines,
-  resolveTasteInjection,
+  fetchTasteGuidelines,
+  mayBenefitFromTasteSkill,
 } from "./constants";
 import { extractJSONFromMarkdown } from "@/lib/utils";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -35,6 +35,7 @@ import { createGenerateGradientTool } from "./tools/generate-gradient";
 import { runRepoResearch } from "./workers/repo-research";
 import { runExaResearch } from "./workers/exa-research";
 import { runReview } from "./workers/review";
+import { runSkillRouter } from "./workers/skill-router";
 import type {
   AgentPlan,
   ResearchArtifact,
@@ -419,29 +420,51 @@ export const processMessage = inngest.createFunction(
     }
 
     // ──────────────────────────────────────────────
-    // Stage 4.5 — Taste design skill injection
+    // Stage 4.5 — AI taste-skill router + injection
     // ──────────────────────────────────────────────
 
     let activeTasteSkill: string | null = null;
-    const tasteInjection = resolveTasteInjection(message, workingMessage);
-    if (tasteInjection.shouldInject && tasteInjection.skill) {
-      const designGuidelines = await step.run("fetch-taste-skill", async () => {
-        console.log(
-          `[ProcessMessage] Loading taste skill: ${tasteInjection.skill}`
-        );
-        return await fetchImpeccableGuidelines(tasteInjection.skill!);
-      });
+    const hasImages = (imageUrls?.length ?? 0) > 0;
 
-      if (designGuidelines) {
-        activeTasteSkill = tasteInjection.skill;
-        systemPrompt += `\n\n${createSkillExecutionPrompt(
-          tasteInjection.skill,
-          designGuidelines
-        )}`;
-      } else {
-        console.warn(
-          "[ProcessMessage] No design guidelines fetched - taste skills unavailable"
+    if (mayBenefitFromTasteSkill(message, workingMessage, hasImages)) {
+      const decision = await step.run("route-taste-skill", () =>
+        runSkillRouter({
+          userMessage: message,
+          enhancedMessage: workingMessage,
+          hasImages,
+          recentHistory: contextMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        })
+      );
+
+      console.log(
+        `[ProcessMessage] Skill router → ${decision.skill ?? "none"} (${decision.source}): ${decision.reason}`
+      );
+
+      if (decision.skill) {
+        const designGuidelines = await step.run(
+          "fetch-taste-skill",
+          async () => {
+            console.log(
+              `[ProcessMessage] Loading taste skill: ${decision.skill}`
+            );
+            return await fetchTasteGuidelines(decision.skill!);
+          }
         );
+
+        if (designGuidelines) {
+          activeTasteSkill = decision.skill;
+          systemPrompt += `\n\n${createSkillExecutionPrompt(
+            decision.skill,
+            designGuidelines
+          )}`;
+        } else {
+          console.warn(
+            `[ProcessMessage] Skill ${decision.skill} resolved but fetch returned empty content`
+          );
+        }
       }
     }
 
